@@ -66,6 +66,11 @@ export class VSCPullRequestDetailsActionApi implements PullRequestDetailsActionA
         return await client.pullrequests.getReviewers(site, query, cancelToken);
     }
 
+    async fetchImage(pr: PullRequest, url: string): Promise<string> {
+        const bbApi = await clientForSite(pr.site);
+        return await bbApi.repositories.fetchImage(url);
+    }
+
     async updateSummary(pr: PullRequest, text: string): Promise<PullRequest> {
         const bbApi = await clientForSite(pr.site);
         return await bbApi.pullrequests.update(

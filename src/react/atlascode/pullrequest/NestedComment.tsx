@@ -1,10 +1,10 @@
 import { Avatar, Box, Button, CircularProgress, Grid, Tooltip, Typography } from '@mui/material';
 import { makeStyles } from '@mui/styles';
 import { format, parseISO } from 'date-fns';
-import DOMPurify from 'dompurify';
-import React, { useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useContext, useEffect, useState } from 'react';
 
 import { Comment, PullRequestState, User } from '../../../bitbucket/model';
+import { RenderedContent } from '../../../webviews/components/RenderedContent';
 import CommentForm from '../common/CommentForm';
 import { formatTime } from '../util/date-fns';
 import { TaskAdder } from './CommentTaskAdder';
@@ -133,8 +133,6 @@ export const NestedComment: React.FunctionComponent<NestedCommentProps> = ({
         setIsLoading(false);
     }, [comment]);
 
-    const sanitizedHtml = useMemo(() => DOMPurify.sanitize(comment.htmlContent), [comment.htmlContent]);
-
     return (
         <React.Fragment>
             <Box hidden={isEditing}>
@@ -162,10 +160,9 @@ export const NestedComment: React.FunctionComponent<NestedCommentProps> = ({
                                 <CircularProgress />
                             </Box>
                             <Box hidden={isLoading}>
-                                <Typography
-                                    // eslint-disable-next-line react-dom/no-dangerously-set-innerhtml -- sanitized with DOMPurify
-                                    dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-                                />
+                                <Typography component="div">
+                                    <RenderedContent html={comment.htmlContent} fetchImage={controller.fetchImage} />
+                                </Typography>
                             </Box>
                             <Grid item>
                                 <Grid container direction={'row'} alignItems="center">

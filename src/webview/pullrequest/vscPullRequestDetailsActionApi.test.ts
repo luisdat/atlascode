@@ -393,6 +393,23 @@ describe('VSCPullRequestDetailsActionApi', () => {
         });
     });
 
+    describe('fetchImage', () => {
+        it('should fetch the image via the site repositories client', async () => {
+            const mockBbApi = {
+                repositories: {
+                    fetchImage: jest.fn().mockResolvedValue('base64imagedata'),
+                },
+            };
+            (clientForSite as jest.Mock).mockResolvedValue(mockBbApi);
+
+            const result = await api.fetchImage(mockPullRequest, 'https://bitbucket.org/some/image.png');
+
+            expect(clientForSite).toHaveBeenCalledWith(mockSite);
+            expect(mockBbApi.repositories.fetchImage).toHaveBeenCalledWith('https://bitbucket.org/some/image.png');
+            expect(result).toBe('base64imagedata');
+        });
+    });
+
     describe('fetchUsers', () => {
         it('should fetch users with query', async () => {
             const mockClient = {

@@ -1,11 +1,12 @@
 import EditIcon from '@mui/icons-material/Edit';
 import { Box, darken, Grid, lighten, Theme, Tooltip, Typography } from '@mui/material';
 import { makeStyles } from '@mui/styles';
-import DOMPurify from 'dompurify';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useContext, useState } from 'react';
 
 import { User } from '../../../bitbucket/model';
+import { RenderedContent } from '../../../webviews/components/RenderedContent';
 import { MarkdownEditor } from '../common/editor/MarkdownEditor';
+import { PullRequestDetailsControllerContext } from './pullRequestDetailsController';
 
 const useStyles = makeStyles(
     (theme: Theme) =>
@@ -42,6 +43,7 @@ type InlineTextEditorProps = {
 
 const InlineRenderedTextEditor: React.FC<InlineTextEditorProps> = (props: InlineTextEditorProps) => {
     const classes = useStyles();
+    const controller = useContext(PullRequestDetailsControllerContext);
     const [editMode, setEditMode] = useState(false);
     const [showEditButton, setShowEditButton] = useState(false);
 
@@ -50,8 +52,6 @@ const InlineRenderedTextEditor: React.FC<InlineTextEditorProps> = (props: Inline
 
     const handleFocusIn = useCallback(() => setShowEditButton(true), []);
     const handleFocusOut = useCallback(() => setShowEditButton(false), []);
-
-    const sanitizedHtml = useMemo(() => DOMPurify.sanitize(props.htmlContent), [props.htmlContent]);
 
     const handleSave = useCallback(
         async (value: string) => {
@@ -80,11 +80,9 @@ const InlineRenderedTextEditor: React.FC<InlineTextEditorProps> = (props: Inline
             onMouseLeave={handleFocusOut}
         >
             <Grid item xs>
-                <Typography
-                    variant="body1"
-                    // eslint-disable-next-line react-dom/no-dangerously-set-innerhtml -- sanitized with DOMPurify
-                    dangerouslySetInnerHTML={{ __html: sanitizedHtml }}
-                />
+                <Typography variant="body1" component="div">
+                    <RenderedContent html={props.htmlContent} fetchImage={controller.fetchImage} />
+                </Typography>
             </Grid>
             <Grid item>
                 <Box

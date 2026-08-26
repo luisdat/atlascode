@@ -41,6 +41,7 @@ export enum PullRequestDetailsMessageType {
     UpdateRelatedJiraIssues = 'updateRelatedJiraIssues',
     UpdateTasks = 'updateTasks',
     UpdateConflictedFiles = 'updateConflictedFiles',
+    FetchImageResponse = 'fetchImageResponse',
 }
 
 export type PullRequestDetailsMessage =
@@ -69,7 +70,8 @@ export type PullRequestDetailsResponse =
     | ReducerAction<PullRequestDetailsMessageType.AddTaskResponse, VoidResponseMessage>
     | ReducerAction<PullRequestDetailsMessageType.EditTaskResponse, VoidResponseMessage>
     | ReducerAction<PullRequestDetailsMessageType.DeleteTaskResponse, VoidResponseMessage>
-    | ReducerAction<PullRequestDetailsMessageType.UpdateReviewersResponse, VoidResponseMessage>;
+    | ReducerAction<PullRequestDetailsMessageType.UpdateReviewersResponse, VoidResponseMessage>
+    | ReducerAction<PullRequestDetailsMessageType.FetchImageResponse, FetchImageResponseMessage>;
 
 export interface PullRequestDetailsInitMessage {
     pr: PullRequest;
@@ -97,6 +99,11 @@ export interface PullRequestDetailsInitMessage {
 
 export interface FetchUsersResponseMessage {
     users: User[];
+}
+
+export interface FetchImageResponseMessage {
+    imgData: string;
+    nonce: string;
 }
 
 export interface VoidResponseMessage {}

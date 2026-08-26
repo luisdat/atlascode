@@ -117,6 +117,7 @@ describe('PullRequestDetailsWebviewController', () => {
         mockMessagePoster = jest.fn();
         mockApi = {
             fetchUsers: jest.fn(),
+            fetchImage: jest.fn(),
             updateSummary: jest.fn(),
             updateTitle: jest.fn(),
             updateDraftStatus: jest.fn(),
@@ -367,6 +368,47 @@ describe('PullRequestDetailsWebviewController', () => {
                 expect(mockMessagePoster).toHaveBeenCalledWith({
                     type: CommonMessageType.Error,
                     reason: expect.any(Object),
+                });
+            });
+        });
+
+        describe('PullRequestDetailsActionType.FetchImageRequest', () => {
+            it('should fetch the image and post the response with the matching nonce', async () => {
+                mockApi.fetchImage.mockResolvedValue('base64imagedata');
+
+                const action: PullRequestDetailsAction = {
+                    type: PullRequestDetailsActionType.FetchImageRequest,
+                    url: 'https://bitbucket.org/some/image.png',
+                    nonce: 'nonce1',
+                };
+
+                await controller.onMessageReceived(action);
+
+                expect(mockApi.fetchImage).toHaveBeenCalledWith(mockPr, 'https://bitbucket.org/some/image.png');
+                expect(mockMessagePoster).toHaveBeenCalledWith({
+                    type: PullRequestDetailsMessageType.FetchImageResponse,
+                    imgData: 'base64imagedata',
+                    nonce: 'nonce1',
+                });
+            });
+
+            it('should post an empty response instead of an error when fetching fails', async () => {
+                const error = new Error('Unauthorized');
+                mockApi.fetchImage.mockRejectedValue(error);
+
+                const action: PullRequestDetailsAction = {
+                    type: PullRequestDetailsActionType.FetchImageRequest,
+                    url: 'https://bitbucket.org/some/image.png',
+                    nonce: 'nonce1',
+                };
+
+                await controller.onMessageReceived(action);
+
+                expect(mockLogger.error).toHaveBeenCalledWith(error, 'Error fetching image');
+                expect(mockMessagePoster).toHaveBeenCalledWith({
+                    type: PullRequestDetailsMessageType.FetchImageResponse,
+                    imgData: '',
+                    nonce: 'nonce1',
                 });
             });
         });

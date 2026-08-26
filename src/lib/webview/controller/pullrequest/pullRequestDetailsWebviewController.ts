@@ -576,6 +576,21 @@ export class PullRequestDetailsWebviewController implements WebviewController<Pu
                 this.api.handleEditorFocus(msg.isFocused);
                 break;
 
+            case PullRequestDetailsActionType.FetchImageRequest: {
+                let imgData = '';
+                try {
+                    imgData = await this.api.fetchImage(this.pr, msg.url);
+                } catch (e) {
+                    this.logger.error(e, 'Error fetching image');
+                }
+                this.postMessage({
+                    type: PullRequestDetailsMessageType.FetchImageResponse,
+                    imgData: imgData,
+                    nonce: msg.nonce,
+                });
+                break;
+            }
+
             case CommonActionType.SendAnalytics:
             case CommonActionType.CopyLink:
             case CommonActionType.OpenJiraIssue:
