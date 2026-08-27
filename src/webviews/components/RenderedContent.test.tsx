@@ -272,9 +272,14 @@ describe('RenderedContent', () => {
             );
         });
 
-        it('intercepts a real Bitbucket Server attachment link (from a live PR)', () => {
+        it('intercepts a real Bitbucket Server attachment link (from a live PR), preserving the raw relative href', () => {
             // Actual markup fetched from a live Bitbucket Server PR description via the REST API:
             // GET /rest/api/1.0/projects/GT_NAVC/repos/fdp/pull-requests/671?markup=true
+            //
+            // Regression test: must pass through the RAW relative href, not anchor.href - the latter
+            // resolves against the webview's own internal document base (verified live in a real VS Code
+            // Remote webview to be some vscode-resource.vscode-cdn.net pseudo-origin, not the Bitbucket
+            // site), which silently corrupted the target into a same-webview resource URL instead.
             const html =
                 '<p><strong>FP Dump</strong><br />' +
                 '<a rel="nofollow" href="/rest/api/1.0/projects/GT_NAVC/repos/fdp/attachments/10947">' +
@@ -285,7 +290,7 @@ describe('RenderedContent', () => {
             link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
             expect(mockFetchAttachment).toHaveBeenCalledWith(
-                'http://localhost/rest/api/1.0/projects/GT_NAVC/repos/fdp/attachments/10947',
+                '/rest/api/1.0/projects/GT_NAVC/repos/fdp/attachments/10947',
                 '26.08.26_234114-314966_nvtj16fdp_ARR001_CYYZ_CYOW_2350_260826_manual.fp',
             );
         });
@@ -346,7 +351,7 @@ describe('RenderedContent', () => {
             link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
 
             expect(mockFetchAttachment).toHaveBeenCalledWith(
-                'http://localhost/rest/api/1.0/projects/GT_NAVC/repos/fdp/attachments/10969',
+                '/rest/api/1.0/projects/GT_NAVC/repos/fdp/attachments/10969',
                 '10969',
             );
         });

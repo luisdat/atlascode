@@ -28,12 +28,15 @@ function filenameFromHref(href: string): string {
 
 // Bitbucket Server/DC attachment URLs end in a numeric ID, not the real filename - prefer the link's own
 // visible text when it looks like one (has an extension, isn't a whole sentence/URL).
-function filenameFromAnchor(anchor: HTMLAnchorElement, href: string): string {
+function filenameFromAnchor(anchor: HTMLAnchorElement): string {
     const text = anchor.textContent?.trim();
     if (text && !text.includes('/') && /\.[a-z0-9]{1,8}$/i.test(text)) {
         return text;
     }
-    return filenameFromHref(href);
+    // anchor.pathname is resolved-but-base-independent for a root-relative href, unlike anchor.href (see
+    // below) - safe to use here even though the webview's own document base isn't the real site.
+    const lastSegment = anchor.pathname.split('/').filter(Boolean).pop();
+    return lastSegment ? decodeURIComponent(lastSegment) : 'attachment';
 }
 
 export const RenderedContent: React.FC<Props> = (props: Props) => {
@@ -89,14 +92,19 @@ export const RenderedContent: React.FC<Props> = (props: Props) => {
         // that race. Instead, stash the real target on a data attribute and strip the href up front, so
         // there's nothing left for VS Code to navigate to - our click listener below reads the stashed
         // target instead.
+        //
+        // Stash the *raw* href attribute, not anchor.href - the latter is resolved against the webview's
+        // own internal document base (some vscode-resource.vscode-cdn.net pseudo-origin), never the real
+        // site, so a relative Server/DC URL would otherwise get silently corrupted into a same-webview
+        // resource URL instead of being resolved against the site's real base URL on the extension host.
         const attachmentLinks = paragraphElement.querySelectorAll<HTMLAnchorElement>('a[href]');
         attachmentLinks.forEach((anchor) => {
             if (!looksLikeAttachmentLink(anchor)) {
                 return;
             }
-            const href = anchor.href;
-            anchor.setAttribute('atlascode-attachment-href', href);
-            anchor.setAttribute('atlascode-attachment-filename', filenameFromAnchor(anchor, href));
+            const rawHref = anchor.getAttribute('href')!;
+            anchor.setAttribute('atlascode-attachment-href', rawHref);
+            anchor.setAttribute('atlascode-attachment-filename', filenameFromAnchor(anchor));
             anchor.removeAttribute('href');
             anchor.style.cursor = 'pointer';
         });
