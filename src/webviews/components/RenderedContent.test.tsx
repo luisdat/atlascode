@@ -239,4 +239,116 @@ describe('RenderedContent', () => {
             });
         });
     });
+
+    describe('attachment links', () => {
+        let mockFetchAttachment: jest.Mock;
+
+        beforeEach(() => {
+            mockFetchAttachment = jest.fn();
+        });
+
+        it('intercepts a link marked with the download attribute', () => {
+            const html = '<a href="https://bitbucket.org/file.zip" download>file.zip</a>';
+            const { container } = render(<RenderedContent html={html} fetchAttachment={mockFetchAttachment} />);
+
+            const link = container.querySelector('a') as HTMLAnchorElement;
+            const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+            link.dispatchEvent(event);
+
+            expect(mockFetchAttachment).toHaveBeenCalledWith('https://bitbucket.org/file.zip', 'file.zip');
+            expect(event.defaultPrevented).toBe(true);
+        });
+
+        it('intercepts a Bitbucket Cloud "downloads" link', () => {
+            const html = '<a href="https://bitbucket.org/workspace/repo/downloads/report.pdf">report.pdf</a>';
+            const { container } = render(<RenderedContent html={html} fetchAttachment={mockFetchAttachment} />);
+
+            const link = container.querySelector('a') as HTMLAnchorElement;
+            link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+            expect(mockFetchAttachment).toHaveBeenCalledWith(
+                'https://bitbucket.org/workspace/repo/downloads/report.pdf',
+                'report.pdf',
+            );
+        });
+
+        it('intercepts a real Bitbucket Server attachment link (from a live PR)', () => {
+            // Actual markup fetched from a live Bitbucket Server PR description via the REST API:
+            // GET /rest/api/1.0/projects/GT_NAVC/repos/fdp/pull-requests/671?markup=true
+            const html =
+                '<p><strong>FP Dump</strong><br />' +
+                '<a rel="nofollow" href="/rest/api/1.0/projects/GT_NAVC/repos/fdp/attachments/10947">' +
+                '26.08.26_234114-314966_nvtj16fdp_ARR001_CYYZ_CYOW_2350_260826_manual.fp</a></p>';
+            const { container } = render(<RenderedContent html={html} fetchAttachment={mockFetchAttachment} />);
+
+            const link = container.querySelector('a') as HTMLAnchorElement;
+            link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+            expect(mockFetchAttachment).toHaveBeenCalledWith(
+                'http://localhost/rest/api/1.0/projects/GT_NAVC/repos/fdp/attachments/10947',
+                '26.08.26_234114-314966_nvtj16fdp_ARR001_CYYZ_CYOW_2350_260826_manual.fp',
+            );
+        });
+
+        it('leaves an ordinary link alone', () => {
+            const html = '<a href="https://bitbucket.org/workspace/repo/pull-requests/5">PR #5</a>';
+            const { container } = render(<RenderedContent html={html} fetchAttachment={mockFetchAttachment} />);
+
+            const link = container.querySelector('a') as HTMLAnchorElement;
+            const event = new MouseEvent('click', { bubbles: true, cancelable: true });
+            link.dispatchEvent(event);
+
+            expect(mockFetchAttachment).not.toHaveBeenCalled();
+            expect(event.defaultPrevented).toBe(false);
+        });
+
+        it('leaves the href on an ordinary link untouched', () => {
+            const html = '<a href="https://bitbucket.org/workspace/repo/pull-requests/5">PR #5</a>';
+            const { container } = render(<RenderedContent html={html} fetchAttachment={mockFetchAttachment} />);
+
+            const link = container.querySelector('a') as HTMLAnchorElement;
+            expect(link.getAttribute('href')).toBe('https://bitbucket.org/workspace/repo/pull-requests/5');
+        });
+
+        it('strips the href from a matching link so VS Code cannot navigate to it before our handler runs', () => {
+            const html = '<a href="https://bitbucket.org/downloads/file.zip">file.zip</a>';
+            const { container } = render(<RenderedContent html={html} fetchAttachment={mockFetchAttachment} />);
+
+            const link = container.querySelector('a') as HTMLAnchorElement;
+            expect(link.getAttribute('href')).toBeNull();
+        });
+
+        it('does nothing when fetchAttachment is not provided', () => {
+            const html = '<a href="https://bitbucket.org/file.zip" download>file.zip</a>';
+            const { container } = render(<RenderedContent html={html} />);
+
+            const link = container.querySelector('a') as HTMLAnchorElement;
+            expect(() =>
+                link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })),
+            ).not.toThrow();
+        });
+
+        it('derives a fallback filename when the URL has no path segment', () => {
+            const html = '<a href="https://bitbucket.org/" download>download</a>';
+            const { container } = render(<RenderedContent html={html} fetchAttachment={mockFetchAttachment} />);
+
+            const link = container.querySelector('a') as HTMLAnchorElement;
+            link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+            expect(mockFetchAttachment).toHaveBeenCalledWith('https://bitbucket.org/', 'attachment');
+        });
+
+        it('falls back to a URL-derived filename when the link text is not a plausible filename', () => {
+            const html = '<a href="/rest/api/1.0/projects/GT_NAVC/repos/fdp/attachments/10969">click here</a>';
+            const { container } = render(<RenderedContent html={html} fetchAttachment={mockFetchAttachment} />);
+
+            const link = container.querySelector('a') as HTMLAnchorElement;
+            link.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+
+            expect(mockFetchAttachment).toHaveBeenCalledWith(
+                'http://localhost/rest/api/1.0/projects/GT_NAVC/repos/fdp/attachments/10969',
+                '10969',
+            );
+        });
+    });
 });

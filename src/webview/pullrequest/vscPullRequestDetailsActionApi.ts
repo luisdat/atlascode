@@ -71,6 +71,52 @@ export class VSCPullRequestDetailsActionApi implements PullRequestDetailsActionA
         return await bbApi.repositories.fetchImage(url);
     }
 
+    async fetchAttachment(pr: PullRequest, url: string, filename: string): Promise<void> {
+        let resolvedUrl: URL;
+        try {
+            resolvedUrl = new URL(url, pr.site.details.baseLinkUrl);
+        } catch (e) {
+            Logger.error(e, 'Error resolving attachment URL');
+            return;
+        }
+
+        // Not one of this site's own resources - just hand it to the OS instead of trying (and failing) to
+        // authenticate a request to some other host.
+        if (resolvedUrl.hostname !== pr.site.details.host) {
+            vscode.env.openExternal(vscode.Uri.parse(resolvedUrl.toString()));
+            return;
+        }
+
+        let base64Data: string;
+        try {
+            // Reuses the generic authenticated byte-fetch behind fetchImage - it isn't image-specific.
+            const bbApi = await clientForSite(pr.site);
+            base64Data = await bbApi.repositories.fetchImage(resolvedUrl.toString());
+        } catch (e) {
+            Logger.error(e, 'Error fetching attachment');
+            vscode.window.showErrorMessage(`Unable to download attachment: ${filename}`);
+            return;
+        }
+
+        if (!base64Data) {
+            vscode.window.showErrorMessage(`Unable to download attachment: ${filename}`);
+            return;
+        }
+
+        const saveUri = await vscode.window.showSaveDialog({ defaultUri: vscode.Uri.file(filename) });
+        if (!saveUri) {
+            return;
+        }
+
+        await vscode.workspace.fs.writeFile(saveUri, Buffer.from(base64Data, 'base64'));
+
+        const openAction = 'Open';
+        const selection = await vscode.window.showInformationMessage(`Downloaded ${filename}`, openAction);
+        if (selection === openAction) {
+            vscode.env.openExternal(saveUri);
+        }
+    }
+
     async updateSummary(pr: PullRequest, text: string): Promise<PullRequest> {
         const bbApi = await clientForSite(pr.site);
         return await bbApi.pullrequests.update(

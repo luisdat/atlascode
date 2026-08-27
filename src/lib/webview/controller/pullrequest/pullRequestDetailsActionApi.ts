@@ -18,6 +18,7 @@ import {
 export interface PullRequestDetailsActionApi {
     fetchUsers(site: BitbucketSite, query: string, abortKey?: string): Promise<User[]>;
     fetchImage(pr: PullRequest, url: string): Promise<string>;
+    fetchAttachment(pr: PullRequest, url: string, filename: string): Promise<void>;
     updateSummary(pr: PullRequest, text: string): Promise<PullRequest>;
     updateTitle(pr: PullRequest, text: string): Promise<PullRequest>;
     updateDraftStatus(pr: PullRequest, isDraft: boolean): Promise<PullRequest>;

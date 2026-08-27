@@ -118,6 +118,7 @@ describe('PullRequestDetailsWebviewController', () => {
         mockApi = {
             fetchUsers: jest.fn(),
             fetchImage: jest.fn(),
+            fetchAttachment: jest.fn(),
             updateSummary: jest.fn(),
             updateTitle: jest.fn(),
             updateDraftStatus: jest.fn(),
@@ -410,6 +411,41 @@ describe('PullRequestDetailsWebviewController', () => {
                     imgData: '',
                     nonce: 'nonce1',
                 });
+            });
+        });
+
+        describe('PullRequestDetailsActionType.FetchAttachmentRequest', () => {
+            it('should delegate to the action API', async () => {
+                mockApi.fetchAttachment.mockResolvedValue();
+
+                const action: PullRequestDetailsAction = {
+                    type: PullRequestDetailsActionType.FetchAttachmentRequest,
+                    url: 'https://bitbucket.org/some/file.zip',
+                    filename: 'file.zip',
+                };
+
+                await controller.onMessageReceived(action);
+
+                expect(mockApi.fetchAttachment).toHaveBeenCalledWith(
+                    mockPr,
+                    'https://bitbucket.org/some/file.zip',
+                    'file.zip',
+                );
+            });
+
+            it('should log and swallow errors instead of throwing', async () => {
+                const error = new Error('Unauthorized');
+                mockApi.fetchAttachment.mockRejectedValue(error);
+
+                const action: PullRequestDetailsAction = {
+                    type: PullRequestDetailsActionType.FetchAttachmentRequest,
+                    url: 'https://bitbucket.org/some/file.zip',
+                    filename: 'file.zip',
+                };
+
+                await expect(controller.onMessageReceived(action)).resolves.not.toThrow();
+
+                expect(mockLogger.error).toHaveBeenCalledWith(error, 'Error fetching attachment');
             });
         });
 

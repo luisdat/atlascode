@@ -88,6 +88,7 @@ const mockController: PullRequestDetailsControllerApi = {
     openJiraIssue: jest.fn(),
     handleEditorFocus: jest.fn(),
     fetchImage: jest.fn(),
+    fetchAttachment: jest.fn(),
 } as PullRequestDetailsControllerApi;
 
 const renderWithContext = (pullRequestState: PullRequestState, comment: Comment = mockComment) => {

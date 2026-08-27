@@ -4,8 +4,37 @@ import React, { useEffect, useMemo, useRef } from 'react';
 interface Props {
     html: string;
     fetchImage?: (url: string) => Promise<string>;
+    fetchAttachment?: (url: string, filename: string) => void;
 }
 const VSCODE_IMG_CONTEXT = JSON.stringify({ webviewSection: 'jiraImageElement', preventDefaultContextMenuItems: true });
+
+// Anchor points at a real uploaded file (not just a page on the same site) rather than a normal link -
+// intercept only these so ordinary links (to other PRs, issues, external sites, ...) keep opening as before.
+function looksLikeAttachmentLink(anchor: HTMLAnchorElement): boolean {
+    if (anchor.hasAttribute('download')) {
+        return true;
+    }
+    return /\/(downloads|attachments)\//i.test(anchor.pathname);
+}
+
+function filenameFromHref(href: string): string {
+    try {
+        const lastSegment = new URL(href).pathname.split('/').filter(Boolean).pop();
+        return lastSegment ? decodeURIComponent(lastSegment) : 'attachment';
+    } catch {
+        return 'attachment';
+    }
+}
+
+// Bitbucket Server/DC attachment URLs end in a numeric ID, not the real filename - prefer the link's own
+// visible text when it looks like one (has an extension, isn't a whole sentence/URL).
+function filenameFromAnchor(anchor: HTMLAnchorElement, href: string): string {
+    const text = anchor.textContent?.trim();
+    if (text && !text.includes('/') && /\.[a-z0-9]{1,8}$/i.test(text)) {
+        return text;
+    }
+    return filenameFromHref(href);
+}
 
 export const RenderedContent: React.FC<Props> = (props: Props) => {
     const ref = useRef<HTMLParagraphElement>(null);
@@ -48,6 +77,47 @@ export const RenderedContent: React.FC<Props> = (props: Props) => {
             paragraphElement?.removeEventListener('error', errorListener, { capture: true });
         };
     }, [props.fetchImage, ref]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    useEffect(() => {
+        if (!ref.current || !props.fetchAttachment) {
+            return;
+        }
+        const paragraphElement = ref.current;
+
+        // VS Code's own webview link handling intercepts <a href> clicks and opens them externally before
+        // any click listener added here gets a chance to preventDefault it, so a real href always wins
+        // that race. Instead, stash the real target on a data attribute and strip the href up front, so
+        // there's nothing left for VS Code to navigate to - our click listener below reads the stashed
+        // target instead.
+        const attachmentLinks = paragraphElement.querySelectorAll<HTMLAnchorElement>('a[href]');
+        attachmentLinks.forEach((anchor) => {
+            if (!looksLikeAttachmentLink(anchor)) {
+                return;
+            }
+            const href = anchor.href;
+            anchor.setAttribute('atlascode-attachment-href', href);
+            anchor.setAttribute('atlascode-attachment-filename', filenameFromAnchor(anchor, href));
+            anchor.removeAttribute('href');
+            anchor.style.cursor = 'pointer';
+        });
+
+        const clickListener = (ee: MouseEvent) => {
+            const anchor = (ee.target as HTMLElement)?.closest?.('a[atlascode-attachment-href]');
+            const href = anchor?.getAttribute('atlascode-attachment-href');
+            if (!href) {
+                return;
+            }
+            ee.preventDefault();
+            const filename = anchor?.getAttribute('atlascode-attachment-filename') || filenameFromHref(href);
+            props.fetchAttachment?.(href, filename);
+        };
+
+        paragraphElement.addEventListener('click', clickListener);
+
+        return () => {
+            paragraphElement?.removeEventListener('click', clickListener);
+        };
+    }, [props.fetchAttachment, sanitizedHtml]); // eslint-disable-line react-hooks/exhaustive-deps
 
     /* eslint-disable react-dom/no-dangerously-set-innerhtml -- sanitized with DOMPurify */
     return <p ref={ref} dangerouslySetInnerHTML={{ __html: sanitizedHtml }} />;

@@ -161,7 +161,11 @@ export const NestedComment: React.FunctionComponent<NestedCommentProps> = ({
                             </Box>
                             <Box hidden={isLoading}>
                                 <Typography component="div">
-                                    <RenderedContent html={comment.htmlContent} fetchImage={controller.fetchImage} />
+                                    <RenderedContent
+                                        html={comment.htmlContent}
+                                        fetchImage={controller.fetchImage}
+                                        fetchAttachment={controller.fetchAttachment}
+                                    />
                                 </Typography>
                             </Box>
                             <Grid item>

@@ -70,6 +70,7 @@ export interface PullRequestDetailsControllerApi {
     openBuildStatus: (buildStatus: BuildStatus) => void;
     handleEditorFocus: (isFocused: boolean) => void;
     fetchImage: (url: string) => Promise<string>;
+    fetchAttachment: (url: string, filename: string) => void;
 }
 
 const emptyApi: PullRequestDetailsControllerApi = {
@@ -107,6 +108,7 @@ const emptyApi: PullRequestDetailsControllerApi = {
     openBuildStatus: (buildStatus: BuildStatus) => {},
     handleEditorFocus: (isFocused: boolean) => {},
     fetchImage: async (url: string) => '',
+    fetchAttachment: (url: string, filename: string) => {},
 };
 
 export const PullRequestDetailsControllerContext = React.createContext(emptyApi);
@@ -726,6 +728,17 @@ export function usePullRequestDetailsController(): [PullRequestDetailsState, Pul
         [postMessagePromise],
     );
 
+    const fetchAttachment = useCallback(
+        (url: string, filename: string): void => {
+            postMessage({
+                type: PullRequestDetailsActionType.FetchAttachmentRequest,
+                url: url,
+                filename: filename,
+            });
+        },
+        [postMessage],
+    );
+
     const controllerApi = useMemo<PullRequestDetailsControllerApi>((): PullRequestDetailsControllerApi => {
         return {
             postMessage: postMessage,
@@ -750,6 +763,7 @@ export function usePullRequestDetailsController(): [PullRequestDetailsState, Pul
             openBuildStatus: openBuildStatus,
             handleEditorFocus: handleEditorFocus,
             fetchImage: fetchImage,
+            fetchAttachment: fetchAttachment,
         };
     }, [
         postMessage,
@@ -774,6 +788,7 @@ export function usePullRequestDetailsController(): [PullRequestDetailsState, Pul
         openBuildStatus,
         handleEditorFocus,
         fetchImage,
+        fetchAttachment,
     ]);
 
     return [state, controllerApi];

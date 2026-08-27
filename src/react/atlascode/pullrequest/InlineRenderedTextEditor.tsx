@@ -81,7 +81,11 @@ const InlineRenderedTextEditor: React.FC<InlineTextEditorProps> = (props: Inline
         >
             <Grid item xs>
                 <Typography variant="body1" component="div">
-                    <RenderedContent html={props.htmlContent} fetchImage={controller.fetchImage} />
+                    <RenderedContent
+                        html={props.htmlContent}
+                        fetchImage={controller.fetchImage}
+                        fetchAttachment={controller.fetchAttachment}
+                    />
                 </Typography>
             </Grid>
             <Grid item>
