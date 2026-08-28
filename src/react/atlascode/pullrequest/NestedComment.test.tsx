@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { Comment, PullRequestState, Task, User } from 'src/bitbucket/model';
 
@@ -87,6 +87,8 @@ const mockController: PullRequestDetailsControllerApi = {
     openDiff: jest.fn(),
     openJiraIssue: jest.fn(),
     handleEditorFocus: jest.fn(),
+    fetchImage: jest.fn(),
+    fetchAttachment: jest.fn(),
 } as PullRequestDetailsControllerApi;
 
 const renderWithContext = (pullRequestState: PullRequestState, comment: Comment = mockComment) => {
@@ -126,6 +128,27 @@ describe('NestedComment', () => {
             const createTaskButton = screen.getByText('Create task');
             const buttonContainer = createTaskButton.closest('[hidden]');
             expect(buttonContainer).toBeTruthy();
+        });
+    });
+
+    describe('comment content images', () => {
+        it('fetches an image via the controller when it fails to load', async () => {
+            const commentWithImage: Comment = {
+                ...mockComment,
+                htmlContent: '<img src="broken.png" atlascode-original-src="https://bitbucket.org/image.png" />',
+            };
+            (mockController.fetchImage as jest.Mock).mockResolvedValue('base64imagedata');
+
+            const { container } = renderWithContext('OPEN', commentWithImage);
+
+            const img = container.querySelector('img[atlascode-original-src]') as HTMLImageElement;
+            const errorEvent = new ErrorEvent('error', { target: img } as any);
+            Object.defineProperty(errorEvent, 'target', { value: img, enumerable: true });
+            img.dispatchEvent(errorEvent);
+
+            await waitFor(() => {
+                expect(mockController.fetchImage).toHaveBeenCalledWith('https://bitbucket.org/image.png');
+            });
         });
     });
 });

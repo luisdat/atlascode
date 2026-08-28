@@ -69,6 +69,8 @@ export interface PullRequestDetailsControllerApi {
     openJiraIssue: (issue: MinimalIssue<DetailedSiteInfo>) => void;
     openBuildStatus: (buildStatus: BuildStatus) => void;
     handleEditorFocus: (isFocused: boolean) => void;
+    fetchImage: (url: string) => Promise<string>;
+    fetchAttachment: (url: string, filename: string) => void;
 }
 
 const emptyApi: PullRequestDetailsControllerApi = {
@@ -105,6 +107,8 @@ const emptyApi: PullRequestDetailsControllerApi = {
     openJiraIssue: (issue: MinimalIssue<DetailedSiteInfo>) => {},
     openBuildStatus: (buildStatus: BuildStatus) => {},
     handleEditorFocus: (isFocused: boolean) => {},
+    fetchImage: async (url: string) => '',
+    fetchAttachment: (url: string, filename: string) => {},
 };
 
 export const PullRequestDetailsControllerContext = React.createContext(emptyApi);
@@ -698,6 +702,43 @@ export function usePullRequestDetailsController(): [PullRequestDetailsState, Pul
         [postMessage],
     );
 
+    const fetchImage = useCallback(
+        (url: string): Promise<string> => {
+            return new Promise<string>((resolve, reject) => {
+                (async () => {
+                    try {
+                        const nonce = v4();
+                        const response = await postMessagePromise(
+                            {
+                                type: PullRequestDetailsActionType.FetchImageRequest,
+                                url: url,
+                                nonce: nonce,
+                            },
+                            PullRequestDetailsMessageType.FetchImageResponse,
+                            ConnectionTimeout,
+                            nonce,
+                        );
+                        resolve(response.imgData);
+                    } catch (e) {
+                        reject(e);
+                    }
+                })();
+            });
+        },
+        [postMessagePromise],
+    );
+
+    const fetchAttachment = useCallback(
+        (url: string, filename: string): void => {
+            postMessage({
+                type: PullRequestDetailsActionType.FetchAttachmentRequest,
+                url: url,
+                filename: filename,
+            });
+        },
+        [postMessage],
+    );
+
     const controllerApi = useMemo<PullRequestDetailsControllerApi>((): PullRequestDetailsControllerApi => {
         return {
             postMessage: postMessage,
@@ -721,6 +762,8 @@ export function usePullRequestDetailsController(): [PullRequestDetailsState, Pul
             openJiraIssue: openJiraIssue,
             openBuildStatus: openBuildStatus,
             handleEditorFocus: handleEditorFocus,
+            fetchImage: fetchImage,
+            fetchAttachment: fetchAttachment,
         };
     }, [
         postMessage,
@@ -744,6 +787,8 @@ export function usePullRequestDetailsController(): [PullRequestDetailsState, Pul
         openJiraIssue,
         openBuildStatus,
         handleEditorFocus,
+        fetchImage,
+        fetchAttachment,
     ]);
 
     return [state, controllerApi];

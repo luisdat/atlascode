@@ -117,6 +117,8 @@ describe('PullRequestDetailsWebviewController', () => {
         mockMessagePoster = jest.fn();
         mockApi = {
             fetchUsers: jest.fn(),
+            fetchImage: jest.fn(),
+            fetchAttachment: jest.fn(),
             updateSummary: jest.fn(),
             updateTitle: jest.fn(),
             updateDraftStatus: jest.fn(),
@@ -368,6 +370,82 @@ describe('PullRequestDetailsWebviewController', () => {
                     type: CommonMessageType.Error,
                     reason: expect.any(Object),
                 });
+            });
+        });
+
+        describe('PullRequestDetailsActionType.FetchImageRequest', () => {
+            it('should fetch the image and post the response with the matching nonce', async () => {
+                mockApi.fetchImage.mockResolvedValue('base64imagedata');
+
+                const action: PullRequestDetailsAction = {
+                    type: PullRequestDetailsActionType.FetchImageRequest,
+                    url: 'https://bitbucket.org/some/image.png',
+                    nonce: 'nonce1',
+                };
+
+                await controller.onMessageReceived(action);
+
+                expect(mockApi.fetchImage).toHaveBeenCalledWith(mockPr, 'https://bitbucket.org/some/image.png');
+                expect(mockMessagePoster).toHaveBeenCalledWith({
+                    type: PullRequestDetailsMessageType.FetchImageResponse,
+                    imgData: 'base64imagedata',
+                    nonce: 'nonce1',
+                });
+            });
+
+            it('should post an empty response instead of an error when fetching fails', async () => {
+                const error = new Error('Unauthorized');
+                mockApi.fetchImage.mockRejectedValue(error);
+
+                const action: PullRequestDetailsAction = {
+                    type: PullRequestDetailsActionType.FetchImageRequest,
+                    url: 'https://bitbucket.org/some/image.png',
+                    nonce: 'nonce1',
+                };
+
+                await controller.onMessageReceived(action);
+
+                expect(mockLogger.error).toHaveBeenCalledWith(error, 'Error fetching image');
+                expect(mockMessagePoster).toHaveBeenCalledWith({
+                    type: PullRequestDetailsMessageType.FetchImageResponse,
+                    imgData: '',
+                    nonce: 'nonce1',
+                });
+            });
+        });
+
+        describe('PullRequestDetailsActionType.FetchAttachmentRequest', () => {
+            it('should delegate to the action API', async () => {
+                mockApi.fetchAttachment.mockResolvedValue();
+
+                const action: PullRequestDetailsAction = {
+                    type: PullRequestDetailsActionType.FetchAttachmentRequest,
+                    url: 'https://bitbucket.org/some/file.zip',
+                    filename: 'file.zip',
+                };
+
+                await controller.onMessageReceived(action);
+
+                expect(mockApi.fetchAttachment).toHaveBeenCalledWith(
+                    mockPr,
+                    'https://bitbucket.org/some/file.zip',
+                    'file.zip',
+                );
+            });
+
+            it('should log and swallow errors instead of throwing', async () => {
+                const error = new Error('Unauthorized');
+                mockApi.fetchAttachment.mockRejectedValue(error);
+
+                const action: PullRequestDetailsAction = {
+                    type: PullRequestDetailsActionType.FetchAttachmentRequest,
+                    url: 'https://bitbucket.org/some/file.zip',
+                    filename: 'file.zip',
+                };
+
+                await expect(controller.onMessageReceived(action)).resolves.not.toThrow();
+
+                expect(mockLogger.error).toHaveBeenCalledWith(error, 'Error fetching attachment');
             });
         });
 

@@ -62,6 +62,8 @@ jest.mock('../common/pullRequestHelperActions');
 const mockCommands = vscode.commands as jest.Mocked<typeof vscode.commands>;
 const mockEnv = vscode.env as jest.Mocked<typeof vscode.env>;
 const mockUri = vscode.Uri as jest.Mocked<typeof vscode.Uri>;
+const mockWindow = vscode.window as jest.Mocked<typeof vscode.window>;
+const mockWorkspace = vscode.workspace as jest.Mocked<typeof vscode.workspace>;
 
 describe('VSCPullRequestDetailsActionApi', () => {
     let api: VSCPullRequestDetailsActionApi;
@@ -361,6 +363,11 @@ describe('VSCPullRequestDetailsActionApi', () => {
         mockCommands.executeCommand = jest.fn().mockResolvedValue(undefined);
         mockEnv.openExternal = jest.fn().mockResolvedValue(undefined);
         mockUri.parse = jest.fn().mockImplementation((uri) => ({ toString: () => uri }));
+        mockUri.file = jest.fn().mockImplementation((path) => ({ fsPath: path, toString: () => path }));
+        mockWindow.showErrorMessage = jest.fn();
+        mockWindow.showInformationMessage = jest.fn().mockResolvedValue(undefined);
+        mockWindow.showSaveDialog = jest.fn().mockResolvedValue(undefined);
+        mockWorkspace.fs.writeFile = jest.fn().mockResolvedValue(undefined);
     });
 
     describe('getCurrentUser', () => {
@@ -390,6 +397,133 @@ describe('VSCPullRequestDetailsActionApi', () => {
                 mockWorkspaceRepo,
             );
             expect(result).toBe(mockPullRequest);
+        });
+    });
+
+    describe('fetchImage', () => {
+        it('should fetch the image via the site repositories client', async () => {
+            const mockBbApi = {
+                repositories: {
+                    fetchImage: jest.fn().mockResolvedValue('base64imagedata'),
+                },
+            };
+            (clientForSite as jest.Mock).mockResolvedValue(mockBbApi);
+
+            const result = await api.fetchImage(mockPullRequest, 'https://bitbucket.org/some/image.png');
+
+            expect(clientForSite).toHaveBeenCalledWith(mockSite);
+            expect(mockBbApi.repositories.fetchImage).toHaveBeenCalledWith('https://bitbucket.org/some/image.png');
+            expect(result).toBe('base64imagedata');
+        });
+    });
+
+    describe('fetchAttachment', () => {
+        it('should open externally without fetching when the URL is on a different host', async () => {
+            await api.fetchAttachment(mockPullRequest, 'https://example.com/file.zip', 'file.zip');
+
+            expect(clientForSite).not.toHaveBeenCalled();
+            expect(mockUri.parse).toHaveBeenCalledWith('https://example.com/file.zip');
+            expect(mockEnv.openExternal).toHaveBeenCalledWith(expect.objectContaining({}));
+        });
+
+        it('should resolve a relative Bitbucket Server/DC-style attachment URL against the site before fetching', async () => {
+            // Real markup from a live Bitbucket Server PR: <a href="/rest/api/1.0/projects/.../attachments/10947">
+            const mockBbApi = {
+                repositories: {
+                    fetchImage: jest.fn().mockResolvedValue(Buffer.from('file contents').toString('base64')),
+                },
+            };
+            (clientForSite as jest.Mock).mockResolvedValue(mockBbApi);
+            mockWindow.showSaveDialog.mockResolvedValue({ fsPath: '/tmp/file.fp' } as vscode.Uri);
+
+            await api.fetchAttachment(
+                mockPullRequest,
+                '/rest/api/1.0/projects/GT_NAVC/repos/fdp/attachments/10947',
+                '26.08.26_234114-314966_nvtj16fdp_ARR001_CYYZ_CYOW_2350_260826_manual.fp',
+            );
+
+            expect(clientForSite).toHaveBeenCalledWith(mockSite);
+            expect(mockBbApi.repositories.fetchImage).toHaveBeenCalledWith(
+                'https://bitbucket.org/rest/api/1.0/projects/GT_NAVC/repos/fdp/attachments/10947',
+            );
+            expect(mockWorkspace.fs.writeFile).toHaveBeenCalled();
+        });
+
+        it('should show an error and not prompt to save when the fetch fails', async () => {
+            const mockBbApi = {
+                repositories: {
+                    fetchImage: jest.fn().mockRejectedValue(new Error('Unauthorized')),
+                },
+            };
+            (clientForSite as jest.Mock).mockResolvedValue(mockBbApi);
+
+            await api.fetchAttachment(mockPullRequest, 'https://bitbucket.org/downloads/file.zip', 'file.zip');
+
+            expect(mockWindow.showErrorMessage).toHaveBeenCalledWith('Unable to download attachment: file.zip');
+            expect(mockWindow.showSaveDialog).not.toHaveBeenCalled();
+        });
+
+        it('should show an error and not prompt to save when the fetch returns no data', async () => {
+            const mockBbApi = {
+                repositories: {
+                    fetchImage: jest.fn().mockResolvedValue(''),
+                },
+            };
+            (clientForSite as jest.Mock).mockResolvedValue(mockBbApi);
+
+            await api.fetchAttachment(mockPullRequest, 'https://bitbucket.org/downloads/file.zip', 'file.zip');
+
+            expect(mockWindow.showErrorMessage).toHaveBeenCalledWith('Unable to download attachment: file.zip');
+            expect(mockWindow.showSaveDialog).not.toHaveBeenCalled();
+        });
+
+        it('should do nothing further when the user cancels the save dialog', async () => {
+            const mockBbApi = {
+                repositories: {
+                    fetchImage: jest.fn().mockResolvedValue('base64data'),
+                },
+            };
+            (clientForSite as jest.Mock).mockResolvedValue(mockBbApi);
+            mockWindow.showSaveDialog.mockResolvedValue(undefined);
+
+            await api.fetchAttachment(mockPullRequest, 'https://bitbucket.org/downloads/file.zip', 'file.zip');
+
+            expect(mockWorkspace.fs.writeFile).not.toHaveBeenCalled();
+        });
+
+        it('should save the file and open it if the user chooses to', async () => {
+            const mockBbApi = {
+                repositories: {
+                    fetchImage: jest.fn().mockResolvedValue(Buffer.from('file contents').toString('base64')),
+                },
+            };
+            (clientForSite as jest.Mock).mockResolvedValue(mockBbApi);
+            const savedUri = { fsPath: '/tmp/file.zip' } as vscode.Uri;
+            mockWindow.showSaveDialog.mockResolvedValue(savedUri);
+            mockWindow.showInformationMessage.mockResolvedValue('Open' as any);
+
+            await api.fetchAttachment(mockPullRequest, 'https://bitbucket.org/downloads/file.zip', 'file.zip');
+
+            expect(mockWorkspace.fs.writeFile).toHaveBeenCalledWith(savedUri, Buffer.from('file contents'));
+            expect(mockWindow.showInformationMessage).toHaveBeenCalledWith('Downloaded file.zip', 'Open');
+            expect(mockEnv.openExternal).toHaveBeenCalledWith(savedUri);
+        });
+
+        it('should save the file without opening it if the user does not choose to', async () => {
+            const mockBbApi = {
+                repositories: {
+                    fetchImage: jest.fn().mockResolvedValue(Buffer.from('file contents').toString('base64')),
+                },
+            };
+            (clientForSite as jest.Mock).mockResolvedValue(mockBbApi);
+            const savedUri = { fsPath: '/tmp/file.zip' } as vscode.Uri;
+            mockWindow.showSaveDialog.mockResolvedValue(savedUri);
+            mockWindow.showInformationMessage.mockResolvedValue(undefined);
+
+            await api.fetchAttachment(mockPullRequest, 'https://bitbucket.org/downloads/file.zip', 'file.zip');
+
+            expect(mockWorkspace.fs.writeFile).toHaveBeenCalledWith(savedUri, Buffer.from('file contents'));
+            expect(mockEnv.openExternal).not.toHaveBeenCalledWith(savedUri);
         });
     });
 

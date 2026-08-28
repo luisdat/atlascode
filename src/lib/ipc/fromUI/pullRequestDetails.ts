@@ -33,6 +33,8 @@ export enum PullRequestDetailsActionType {
     OpenJiraIssue = 'openJiraIssue',
     OpenBuildStatus = 'openBuildStatus',
     HandleEditorFocus = 'handleEditorFocus',
+    FetchImageRequest = 'fetchImageRequest',
+    FetchAttachmentRequest = 'fetchAttachmentRequest',
 }
 
 export type PullRequestDetailsAction =
@@ -54,6 +56,8 @@ export type PullRequestDetailsAction =
     | ReducerAction<PullRequestDetailsActionType.OpenJiraIssue, OpenJiraIssueAction>
     | ReducerAction<PullRequestDetailsActionType.OpenBuildStatus, OpenBuildStatusAction>
     | ReducerAction<PullRequestDetailsActionType.HandleEditorFocus, HandleEditorFocusAction>
+    | ReducerAction<PullRequestDetailsActionType.FetchImageRequest, FetchImageRequestAction>
+    | ReducerAction<PullRequestDetailsActionType.FetchAttachmentRequest, FetchAttachmentRequestAction>
     | CommonAction;
 
 export interface FetchUsersRequestAction {
@@ -130,4 +134,14 @@ export interface OpenBuildStatusAction {
 
 export interface HandleEditorFocusAction {
     isFocused: boolean;
+}
+
+export interface FetchImageRequestAction {
+    url: string;
+    nonce: string;
+}
+
+export interface FetchAttachmentRequestAction {
+    url: string;
+    filename: string;
 }
