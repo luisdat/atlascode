@@ -171,6 +171,25 @@ export class VSCPullRequestDetailsActionApi implements PullRequestDetailsActionA
         return newStatus;
     }
 
+    getReviewState(pr: PullRequest): { isReviewing: boolean; pendingCommentCount: number } {
+        const commentController = Container.bitbucketContext.prCommentController;
+        return {
+            isReviewing: commentController.isReviewing(pr.data.url),
+            pendingCommentCount: commentController.getPendingCommentCount(pr.data.url),
+        };
+    }
+
+    startReview(pr: PullRequest): { isReviewing: boolean; pendingCommentCount: number } {
+        Container.bitbucketContext.prCommentController.startReview(pr.data.url);
+        return this.getReviewState(pr);
+    }
+
+    async stopReview(pr: PullRequest): Promise<{ isReviewing: boolean; pendingCommentCount: number }> {
+        await Container.bitbucketContext.prCommentController.stopReview(pr.data.url);
+        vscode.commands.executeCommand(Commands.BitbucketRefreshPullRequests);
+        return this.getReviewState(pr);
+    }
+
     getCurrentBranchName(pr: PullRequest): string {
         let currentBranchName = '';
         if (pr.workspaceRepo) {

@@ -33,6 +33,7 @@ export enum PullRequestDetailsMessageType {
     UpdateCommits = 'updateCommits',
     UpdateReviewers = 'updateReviewers',
     UpdateApprovalStatus = 'updateApprovalStatus',
+    UpdateReviewState = 'updateReviewState',
     CheckoutBranch = 'checkoutBranch',
     UpdateComments = 'updateComments',
     UpdateFileDiffs = 'updateFileDiffs',
@@ -52,6 +53,7 @@ export type PullRequestDetailsMessage =
     | ReducerAction<PullRequestDetailsMessageType.UpdateCommits, PullRequestDetailsCommitsMessage>
     | ReducerAction<PullRequestDetailsMessageType.UpdateReviewers, PullRequestDetailsReviewersMessage>
     | ReducerAction<PullRequestDetailsMessageType.UpdateApprovalStatus, PullRequestDetailsApprovalMessage>
+    | ReducerAction<PullRequestDetailsMessageType.UpdateReviewState, PullRequestDetailsReviewStateMessage>
     | ReducerAction<PullRequestDetailsMessageType.CheckoutBranch, PullRequestDetailsCheckoutBranchMessage>
     | ReducerAction<PullRequestDetailsMessageType.UpdateComments, PullRequestDetailsCommentsMessage>
     | ReducerAction<PullRequestDetailsMessageType.UpdateFileDiffs, PullRequestDetailsFileDiffsMessage>
@@ -82,6 +84,8 @@ export interface PullRequestDetailsInitMessage {
     tasks: Task[];
     fileDiffs: FileDiff[];
     conflictedFiles: string[];
+    isReviewing: boolean;
+    pendingCommentCount: number;
     mergeStrategies: MergeStrategy[];
     buildStatuses: BuildStatus[];
     relatedJiraIssues: MinimalIssue<DetailedSiteInfo>[];
@@ -133,6 +137,11 @@ export interface PullRequestDetailsApprovalMessage {
     status: ApprovalStatus;
 }
 
+export interface PullRequestDetailsReviewStateMessage {
+    isReviewing: boolean;
+    pendingCommentCount: number;
+}
+
 export interface PullRequestDetailsCheckoutBranchMessage {
     branchName: string;
 }
@@ -177,6 +186,8 @@ export const emptyPullRequestDetailsInitMessage: PullRequestDetailsInitMessage =
     buildStatuses: [],
     relatedJiraIssues: [],
     tasks: [],
+    isReviewing: false,
+    pendingCommentCount: 0,
     loadState: {
         // true indicates this particular component is still loading
         basicData: true,

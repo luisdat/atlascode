@@ -99,7 +99,7 @@ describe('PullRequestCommentController', () => {
                 'bbpr',
                 'Bitbucket pullrequest comments',
             );
-            expect(vscode.commands.registerCommand).toHaveBeenCalledTimes(13);
+            expect(vscode.commands.registerCommand).toHaveBeenCalledTimes(14);
             expect(vscode.languages.registerCompletionItemProvider).toHaveBeenCalled();
             expect(mockContext.subscriptions.length).toBeGreaterThan(0);
         });

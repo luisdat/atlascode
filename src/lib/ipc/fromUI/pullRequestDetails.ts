@@ -21,6 +21,8 @@ export enum PullRequestDetailsActionType {
     UpdateDraftStatusRequest = 'updateDraftStatusRequest',
     UpdateReviewers = 'updateReviewers',
     UpdateApprovalStatus = 'updateApprovalStatus',
+    StartReview = 'startReview',
+    StopReview = 'stopReview',
     CheckoutBranch = 'checkoutBranch',
     PostComment = 'postComment',
     EditComment = 'editComment',
@@ -44,6 +46,8 @@ export type PullRequestDetailsAction =
     | ReducerAction<PullRequestDetailsActionType.UpdateDraftStatusRequest, UpdateDraftStatusAction>
     | ReducerAction<PullRequestDetailsActionType.UpdateReviewers, UpdateReviewersAction>
     | ReducerAction<PullRequestDetailsActionType.UpdateApprovalStatus, UpdateApprovalStatusAction>
+    | ReducerAction<PullRequestDetailsActionType.StartReview>
+    | ReducerAction<PullRequestDetailsActionType.StopReview>
     | ReducerAction<PullRequestDetailsActionType.PostComment, PostCommentAction>
     | ReducerAction<PullRequestDetailsActionType.EditComment, EditCommentAction>
     | ReducerAction<PullRequestDetailsActionType.DeleteComment, DeleteCommentAction>

@@ -274,6 +274,15 @@
                 "category": "Bitbucket"
             },
             {
+                "command": "atlascode.bb.discardPendingComment",
+                "title": "Discard (not yet published)",
+                "icon": {
+                    "dark": "resources/dark/delete.svg",
+                    "light": "resources/light/delete.svg"
+                },
+                "category": "Bitbucket"
+            },
+            {
                 "command": "atlascode.bb.cancelCommentAction",
                 "title": "Cancel"
             },
@@ -928,6 +937,11 @@
                     "when": "comment =~ /canDelete/ && resourceScheme == atlascode.bbpr"
                 },
                 {
+                    "command": "atlascode.bb.discardPendingComment",
+                    "group": "inline@2",
+                    "when": "comment =~ /isPendingReview/ && resourceScheme == atlascode.bbpr"
+                },
+                {
                     "command": "atlascode.bb.addReply",
                     "group": "inline@3",
                     "when": "comment =~ /canAddReply/ && resourceScheme == atlascode.bbpr"
@@ -1097,6 +1111,10 @@
                 },
                 {
                     "command": "atlascode.bb.editComment",
+                    "when": "false"
+                },
+                {
+                    "command": "atlascode.bb.discardPendingComment",
                     "when": "false"
                 },
                 {

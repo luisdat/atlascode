@@ -39,6 +39,7 @@ export const enum Commands {
     BitbucketAddReply = 'atlascode.bb.addReply',
     BitbucketDeleteComment = 'atlascode.bb.deleteComment',
     BitbucketEditComment = 'atlascode.bb.editComment',
+    BitbucketDiscardPendingComment = 'atlascode.bb.discardPendingComment',
     BitbucketDeleteTask = 'atlascode.bb.deleteTask',
     BitbucketAddTask = 'atlascode.bb.addTask',
     BitbucketEditTask = 'atlascode.bb.editTask',

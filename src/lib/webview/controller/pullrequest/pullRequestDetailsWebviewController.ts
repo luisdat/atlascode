@@ -108,12 +108,15 @@ export class PullRequestDetailsWebviewController implements WebviewController<Pu
 
             //Gather some basic data about the PR to use in future calls
             this.pr = await this.api.getPR(this.pr);
+            const reviewState = this.api.getReviewState(this.pr);
             this.postMessage({
                 ...emptyPullRequestDetailsInitMessage,
                 type: PullRequestDetailsMessageType.Init,
                 pr: this.pr,
                 currentUser: await this.getCurrentUser(),
                 currentBranchName: this.api.getCurrentBranchName(this.pr),
+                isReviewing: reviewState.isReviewing,
+                pendingCommentCount: reviewState.pendingCommentCount,
             });
 
             //Launch several independent, async processes
@@ -336,6 +339,34 @@ export class PullRequestDetailsWebviewController implements WebviewController<Pu
                     this.postMessage({
                         type: CommonMessageType.Error,
                         reason: formatError(e, 'Error updating approval status'),
+                    });
+                }
+                break;
+            }
+
+            case PullRequestDetailsActionType.StartReview: {
+                const reviewState = this.api.startReview(this.pr);
+                this.postMessage({
+                    type: PullRequestDetailsMessageType.UpdateReviewState,
+                    isReviewing: reviewState.isReviewing,
+                    pendingCommentCount: reviewState.pendingCommentCount,
+                });
+                break;
+            }
+
+            case PullRequestDetailsActionType.StopReview: {
+                try {
+                    const reviewState = await this.api.stopReview(this.pr);
+                    this.postMessage({
+                        type: PullRequestDetailsMessageType.UpdateReviewState,
+                        isReviewing: reviewState.isReviewing,
+                        pendingCommentCount: reviewState.pendingCommentCount,
+                    });
+                } catch (e) {
+                    this.logger.error(e, 'Error publishing review comments');
+                    this.postMessage({
+                        type: CommonMessageType.Error,
+                        reason: formatError(e, 'Error publishing review comments'),
                     });
                 }
                 break;
