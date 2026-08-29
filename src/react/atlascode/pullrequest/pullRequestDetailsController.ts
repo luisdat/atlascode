@@ -34,6 +34,7 @@ import {
     PullRequestDetailsRelatedJiraIssuesMessage,
     PullRequestDetailsResponse,
     PullRequestDetailsReviewersMessage,
+    PullRequestDetailsReviewStateMessage,
     PullRequestDetailsSummaryMessage,
     PullRequestDetailsTasksMessage,
     PullRequestDetailsTitleMessage,
@@ -51,6 +52,8 @@ export interface PullRequestDetailsControllerApi {
     updateDraftStatus: (isDraft: boolean) => void;
     updateReviewers: (newReviewers: User[]) => Promise<void>;
     updateApprovalStatus: (status: ApprovalStatus) => void;
+    startReview: () => void;
+    stopReview: () => void;
     checkoutBranch: () => void;
     postComment: (rawText: string, parentId?: string) => Promise<void>;
     editComment: (rawContent: string, commentId: string) => Promise<void>;
@@ -89,6 +92,8 @@ const emptyApi: PullRequestDetailsControllerApi = {
     updateDraftStatus: (isDraft: boolean) => {},
     updateReviewers: async (newReviewers: User[]) => {},
     updateApprovalStatus: (status: ApprovalStatus) => {},
+    startReview: () => {},
+    stopReview: () => {},
     checkoutBranch: () => {},
     postComment: async (rawText: string, parentId?: string) => {},
     editComment: async (rawContent: string, commentId: string) => {},
@@ -132,6 +137,7 @@ enum PullRequestDetailsUIActionType {
     UpdateCommits = 'updateCommits',
     UpdateReviewers = 'updateReviewers',
     UpdateApprovalStatus = 'updateApprovalStatus',
+    UpdateReviewState = 'updateReviewState',
     CheckoutBranch = 'checkoutBranch',
     UpdateComments = 'updateComments',
     UpdateTasks = 'updateTasks',
@@ -152,6 +158,7 @@ type PullRequestDetailsUIAction =
     | ReducerAction<PullRequestDetailsUIActionType.UpdateCommits, { data: PullRequestDetailsCommitsMessage }>
     | ReducerAction<PullRequestDetailsUIActionType.UpdateReviewers, { data: PullRequestDetailsReviewersMessage }>
     | ReducerAction<PullRequestDetailsUIActionType.UpdateApprovalStatus, { data: PullRequestDetailsApprovalMessage }>
+    | ReducerAction<PullRequestDetailsUIActionType.UpdateReviewState, { data: PullRequestDetailsReviewStateMessage }>
     | ReducerAction<PullRequestDetailsUIActionType.CheckoutBranch, { data: PullRequestDetailsCheckoutBranchMessage }>
     | ReducerAction<PullRequestDetailsUIActionType.UpdateComments, { data: PullRequestDetailsCommentsMessage }>
     | ReducerAction<PullRequestDetailsUIActionType.UpdateTasks, { data: PullRequestDetailsTasksMessage }>
@@ -251,6 +258,13 @@ function pullRequestDetailsReducer(
                 pr: { ...state.pr, data: { ...state.pr.data, participants: updatedParticipants } },
             };
         }
+        case PullRequestDetailsUIActionType.UpdateReviewState: {
+            return {
+                ...state,
+                isReviewing: action.data.isReviewing,
+                pendingCommentCount: action.data.pendingCommentCount,
+            };
+        }
         case PullRequestDetailsUIActionType.CheckoutBranch: {
             return {
                 ...state,
@@ -344,6 +358,10 @@ export function usePullRequestDetailsController(): [PullRequestDetailsState, Pul
             }
             case PullRequestDetailsMessageType.UpdateApprovalStatus: {
                 dispatch({ type: PullRequestDetailsUIActionType.UpdateApprovalStatus, data: message });
+                break;
+            }
+            case PullRequestDetailsMessageType.UpdateReviewState: {
+                dispatch({ type: PullRequestDetailsUIActionType.UpdateReviewState, data: message });
                 break;
             }
             case PullRequestDetailsMessageType.CheckoutBranch: {
@@ -493,6 +511,15 @@ export function usePullRequestDetailsController(): [PullRequestDetailsState, Pul
         },
         [postMessage],
     );
+
+    const startReview = useCallback(() => {
+        postMessage({ type: PullRequestDetailsActionType.StartReview });
+    }, [postMessage]);
+
+    const stopReview = useCallback(() => {
+        dispatch({ type: PullRequestDetailsUIActionType.Loading });
+        postMessage({ type: PullRequestDetailsActionType.StopReview });
+    }, [postMessage]);
 
     const checkoutBranch = useCallback(() => {
         dispatch({ type: PullRequestDetailsUIActionType.Loading });
@@ -750,6 +777,8 @@ export function usePullRequestDetailsController(): [PullRequestDetailsState, Pul
             updateDraftStatus: updateDraftStatus,
             updateReviewers: updateReviewers,
             updateApprovalStatus: updateApprovalStatus,
+            startReview: startReview,
+            stopReview: stopReview,
             checkoutBranch: checkoutBranch,
             postComment: postComment,
             editComment: editComment,
@@ -775,6 +804,8 @@ export function usePullRequestDetailsController(): [PullRequestDetailsState, Pul
         updateDraftStatus,
         updateReviewers,
         updateApprovalStatus,
+        startReview,
+        stopReview,
         checkoutBranch,
         postComment,
         editComment,

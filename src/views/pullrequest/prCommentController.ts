@@ -6,7 +6,7 @@ import { commands, CommentThread, MarkdownString } from 'vscode';
 import { fileCheckoutEvent, prCommentEvent, prTaskEvent } from '../../analytics';
 import { BitbucketMentionsCompletionProvider } from '../../bitbucket/bbMentionsCompletionProvider';
 import { clientForSite } from '../../bitbucket/bbUtils';
-import { BitbucketSite, Comment, emptyTask, Task } from '../../bitbucket/model';
+import { BitbucketSite, Comment, emptyComment, emptyTask, Task } from '../../bitbucket/model';
 import { Commands } from '../../constants';
 import { Container } from '../../container';
 import { PullRequestNodeDataProvider } from '../pullRequestNodeDataProvider';
@@ -89,6 +89,26 @@ enum SaveContexts {
     CREATINGREPLY,
 }
 
+// A comment created while a review is in progress. It's rendered locally in the diff editor but is not
+// sent to Bitbucket until the review is stopped (mirrors Bitbucket Server's "Start review"/"Stop review" workflow).
+interface PendingReviewComment {
+    id: string;
+    site: BitbucketSite;
+    prId: string;
+    prHref: string;
+    text: string;
+    parentCommentId: string;
+    inline?: { from?: number; to?: number; path: string };
+    commitHash?: string;
+    lineType?: 'ADDED' | 'REMOVED';
+    // The thread this comment belongs to. For the first comment of a brand new thread, this is the
+    // comment's own client-generated id (there's no real thread id until it's published).
+    threadId: string;
+    threadUri: vscode.Uri;
+    threadRange: vscode.Range;
+    isNewThread: boolean;
+}
+
 function isPRTask(comment: vscode.Comment): comment is PullRequestTask {
     return !!(<PullRequestTask>comment).task;
 }
@@ -105,6 +125,10 @@ export class PullRequestCommentController implements vscode.Disposable {
     );
     // map of comment threads keyed by pull request - Map<`pull request href`, Map<`comment id`, vscode.CommentThread>>
     private _commentsCache = new Map<string, Map<string, vscode.CommentThread>>();
+    // PRs (keyed by href) for which a review is currently in progress
+    private _reviewingPRs = new Set<string>();
+    // comments created during a review that haven't been published to Bitbucket yet, keyed by PR href
+    private _pendingComments = new Map<string, PendingReviewComment[]>();
 
     constructor(ctx: vscode.ExtensionContext) {
         ctx.subscriptions.push(
@@ -127,6 +151,15 @@ export class PullRequestCommentController implements vscode.Disposable {
                     vscode.Uri.parse(comment.prHref),
                 );
             }),
+
+            //Invoked when the trashcan icon is pressed on a pending (not yet published) review comment; it's only
+            //removed locally, since it was never sent to Bitbucket.
+            vscode.commands.registerCommand(
+                Commands.BitbucketDiscardPendingComment,
+                async (comment: PullRequestComment) => {
+                    await this.discardPendingComment(comment);
+                },
+            ),
 
             //Invoked when the "Cancel" button is pressed when creating a new comment/task or editing an existing one
             vscode.commands.registerCommand(Commands.BBPRCancelAction, async (comment: EnhancedComment) => {
@@ -416,17 +449,35 @@ export class PullRequestCommentController implements vscode.Disposable {
         const { inline, lineType, commentThreadId, rhsCommitHash, isCommitLevelDiff } = this.getDataForAddingComment(
             commentData.parent,
         );
+        const isReviewing = this.isReviewing(commentData.prHref);
 
-        const bbApi = await clientForSite(commentData.site);
-        const newComment = await bbApi.pullrequests.postComment(
-            commentData.site,
-            commentData.prId,
-            commentData.body.toString(),
-            commentData.parentCommentId ?? '',
-            inline,
-            isCommitLevelDiff ? rhsCommitHash : undefined,
-            lineType,
-        );
+        const newComment = isReviewing
+            ? await this.createPendingComment({
+                  site: commentData.site,
+                  prId: commentData.prId,
+                  prHref: commentData.prHref,
+                  text: commentData.body.toString(),
+                  parentCommentId: commentData.parentCommentId ?? '',
+                  inline,
+                  commitHash: isCommitLevelDiff ? rhsCommitHash : undefined,
+                  lineType,
+                  threadId: commentThreadId!,
+                  threadUri: commentData.parent.uri,
+                  threadRange: commentData.parent.range,
+                  isNewThread: false,
+              })
+            : await (async () => {
+                  const bbApi = await clientForSite(commentData.site);
+                  return bbApi.pullrequests.postComment(
+                      commentData.site,
+                      commentData.prId,
+                      commentData.body.toString(),
+                      commentData.parentCommentId ?? '',
+                      inline,
+                      isCommitLevelDiff ? rhsCommitHash : undefined,
+                      lineType,
+                  );
+              })();
 
         const newComments: PullRequestComment[] = [];
         //The new comment should be pushed to the bottom of the children of the comment it was a reply to, but because we have no notion of comment depth currently
@@ -447,6 +498,7 @@ export class PullRequestCommentController implements vscode.Disposable {
                         newComment,
                         commentData.prHref,
                         commentData.prId,
+                        isReviewing,
                     ),
                 );
             }
@@ -457,24 +509,43 @@ export class PullRequestCommentController implements vscode.Disposable {
     async addComment(reply: vscode.CommentReply) {
         const { site, prId, prHref, commentThreadId, inline, lineType, rhsCommitHash, isCommitLevelDiff } =
             this.getDataForAddingComment(reply.thread);
+        const isReviewing = this.isReviewing(prHref);
 
-        const bbApi = await clientForSite(site);
-        const newComment = await bbApi.pullrequests.postComment(
-            site,
-            prId,
-            reply.text,
-            commentThreadId ?? '',
-            inline,
-            isCommitLevelDiff ? rhsCommitHash : undefined,
-            lineType,
-        );
-        prCommentEvent(site.details).then((e) => {
-            Container.analyticsClient.sendTrackEvent(e);
-        });
+        const newComment = isReviewing
+            ? await this.createPendingComment({
+                  site,
+                  prId,
+                  prHref,
+                  text: reply.text,
+                  parentCommentId: '',
+                  inline,
+                  commitHash: isCommitLevelDiff ? rhsCommitHash : undefined,
+                  lineType,
+                  threadId: '',
+                  threadUri: reply.thread.uri,
+                  threadRange: reply.thread.range,
+                  isNewThread: true,
+              })
+            : await (async () => {
+                  const bbApi = await clientForSite(site);
+                  const comment = await bbApi.pullrequests.postComment(
+                      site,
+                      prId,
+                      reply.text,
+                      commentThreadId ?? '',
+                      inline,
+                      isCommitLevelDiff ? rhsCommitHash : undefined,
+                      lineType,
+                  );
+                  prCommentEvent(site.details).then((e) => {
+                      Container.analyticsClient.sendTrackEvent(e);
+                  });
+                  return comment;
+              })();
 
         const comments = [
             ...reply.thread.comments,
-            await this.createVSCodeComment(site, newComment.id, newComment, prHref, prId),
+            await this.createVSCodeComment(site, newComment.id, newComment, prHref, prId, isReviewing),
         ];
 
         await this.createOrUpdateThread(
@@ -940,26 +1011,40 @@ export class PullRequestCommentController implements vscode.Disposable {
         comment: Comment,
         prHref: string,
         prId: string,
+        isPending: boolean = false,
     ): Promise<PullRequestComment> {
         const contextValues = ['canAddReply'];
-        if (!comment.commitHash) {
-            contextValues.push('canAddTask');
-        }
-        if (comment.editable) {
-            contextValues.push('canEdit');
-        }
-        if (comment.deletable) {
-            contextValues.push('canDelete');
+        if (isPending) {
+            //Pending review comments haven't been published yet, so they can only be discarded - not edited,
+            //deleted through the normal flow, or have tasks added to them.
+            contextValues.push('isPendingReview');
+        } else {
+            if (!comment.commitHash) {
+                contextValues.push('canAddTask');
+            }
+            if (comment.editable) {
+                contextValues.push('canEdit');
+            }
+            if (comment.deletable) {
+                contextValues.push('canDelete');
+            }
         }
 
         return {
             site: site,
             prCommentThreadId: parentCommentThreadId,
-            body: new vscode.MarkdownString(turndownService.turndown(comment.htmlContent)),
-            author: {
-                name: comment.user.displayName || 'Unknown user',
-                iconPath: vscode.Uri.parse(comment.user.avatarUrl),
-            },
+            body: isPending
+                ? new vscode.MarkdownString(comment.rawContent)
+                : new vscode.MarkdownString(turndownService.turndown(comment.htmlContent)),
+            author: isPending
+                ? {
+                      name: `${comment.user.displayName || 'You'} (pending – not yet published)`,
+                      iconPath: comment.user.avatarUrl ? vscode.Uri.parse(comment.user.avatarUrl) : undefined,
+                  }
+                : {
+                      name: comment.user.displayName || 'Unknown user',
+                      iconPath: vscode.Uri.parse(comment.user.avatarUrl),
+                  },
             authorId: comment.user.accountId,
             contextValue: contextValues.join(','),
             mode: vscode.CommentMode.Preview,
@@ -971,6 +1056,180 @@ export class PullRequestCommentController implements vscode.Disposable {
             editModeContent: '',
             commitHash: comment.commitHash,
         };
+    }
+
+    isReviewing(prHref: string): boolean {
+        return this._reviewingPRs.has(prHref);
+    }
+
+    getPendingCommentCount(prHref: string): number {
+        return this._pendingComments.get(prHref)?.length ?? 0;
+    }
+
+    startReview(prHref: string): void {
+        this._reviewingPRs.add(prHref);
+    }
+
+    //Publishes every pending comment gathered while reviewing, then ends the review. Comments are published in the
+    //order they were created so that replies to other pending comments can be resolved to their real (server-assigned)
+    //parent id once that parent has been published.
+    async stopReview(prHref: string): Promise<void> {
+        this._reviewingPRs.delete(prHref);
+        const pendingList = this._pendingComments.get(prHref);
+        this._pendingComments.delete(prHref);
+        if (!pendingList || pendingList.length === 0) {
+            return;
+        }
+
+        const groups = new Map<string, PendingReviewComment[]>();
+        for (const pending of pendingList) {
+            if (!groups.has(pending.threadId)) {
+                groups.set(pending.threadId, []);
+            }
+            groups.get(pending.threadId)!.push(pending);
+        }
+
+        const clientIdToServerId = new Map<string, string>();
+        const prCommentCache = this._commentsCache.get(prHref);
+
+        for (const [placeholderThreadId, group] of groups) {
+            const thread = prCommentCache?.get(placeholderThreadId);
+            if (!thread) {
+                continue;
+            }
+
+            let comments = [...thread.comments];
+            let resolvedThreadId = placeholderThreadId;
+            let threadIdResolved = false;
+
+            for (const pending of group) {
+                const resolvedParentId = pending.parentCommentId
+                    ? (clientIdToServerId.get(pending.parentCommentId) ?? pending.parentCommentId)
+                    : '';
+
+                const bbApi = await clientForSite(pending.site);
+                const newComment = await bbApi.pullrequests.postComment(
+                    pending.site,
+                    pending.prId,
+                    pending.text,
+                    resolvedParentId,
+                    pending.inline,
+                    pending.commitHash,
+                    pending.lineType,
+                );
+                clientIdToServerId.set(pending.id, newComment.id);
+                prCommentEvent(pending.site.details).then((e) => {
+                    Container.analyticsClient.sendTrackEvent(e);
+                });
+
+                if (pending.isNewThread && !threadIdResolved) {
+                    resolvedThreadId = newComment.id;
+                    threadIdResolved = true;
+                }
+
+                const realComment = await this.createVSCodeComment(
+                    pending.site,
+                    resolvedThreadId,
+                    newComment,
+                    pending.prHref,
+                    pending.prId,
+                );
+                comments = comments.map((comment) =>
+                    (comment as PullRequestComment).id === pending.id ? realComment : comment,
+                );
+            }
+
+            await this.createOrUpdateThread(resolvedThreadId, group[0].threadUri, group[0].threadRange, comments);
+        }
+
+        vscode.commands.executeCommand(Commands.RefreshPullRequestExplorerNode, vscode.Uri.parse(prHref));
+    }
+
+    //Builds a locally-held comment for a review in progress. It's rendered immediately but isn't sent to Bitbucket
+    //until stopReview() publishes it.
+    private async createPendingComment(params: {
+        site: BitbucketSite;
+        prId: string;
+        prHref: string;
+        text: string;
+        parentCommentId: string;
+        inline?: { from?: number; to?: number; path: string };
+        commitHash?: string;
+        lineType?: 'ADDED' | 'REMOVED';
+        threadId: string;
+        threadUri: vscode.Uri;
+        threadRange: vscode.Range;
+        isNewThread: boolean;
+    }): Promise<Comment> {
+        const id = v4();
+        const currentUser = await Container.bitbucketContext.currentUser(params.site);
+
+        if (!this._pendingComments.has(params.prHref)) {
+            this._pendingComments.set(params.prHref, []);
+        }
+        this._pendingComments.get(params.prHref)!.push({
+            id,
+            site: params.site,
+            prId: params.prId,
+            prHref: params.prHref,
+            text: params.text,
+            parentCommentId: params.parentCommentId,
+            inline: params.inline,
+            commitHash: params.commitHash,
+            lineType: params.lineType,
+            threadId: params.isNewThread ? id : params.threadId,
+            threadUri: params.threadUri,
+            threadRange: params.threadRange,
+            isNewThread: params.isNewThread,
+        });
+
+        const now = new Date().toISOString();
+        return {
+            ...emptyComment,
+            id,
+            deletable: false,
+            editable: false,
+            user: currentUser,
+            rawContent: params.text,
+            ts: now,
+            updatedTs: now,
+        };
+    }
+
+    //Invoked when the trashcan icon is pressed on a pending (not yet published) comment - it's only ever removed
+    //locally since it was never sent to Bitbucket.
+    private async discardPendingComment(comment: PullRequestComment) {
+        if (!comment.parent) {
+            return;
+        }
+
+        const prHref = comment.prHref;
+        const list = this._pendingComments.get(prHref);
+        if (list) {
+            const filtered = list.filter((pending) => pending.id !== comment.id);
+            if (filtered.length > 0) {
+                this._pendingComments.set(prHref, filtered);
+            } else {
+                this._pendingComments.delete(prHref);
+            }
+        }
+
+        const remainingComments = comment.parent.comments.filter(
+            (existing) => (existing as PullRequestComment).id !== comment.id,
+        );
+
+        if (remainingComments.length === 0) {
+            comment.parent.dispose();
+            this._commentsCache.get(prHref)?.delete(comment.prCommentThreadId!);
+            return;
+        }
+
+        await this.createOrUpdateThread(
+            comment.prCommentThreadId!,
+            comment.parent.uri,
+            comment.parent.range,
+            remainingComments,
+        );
     }
 
     disposePR(prHref: string) {

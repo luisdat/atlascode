@@ -74,6 +74,8 @@ const mockController: PullRequestDetailsControllerApi = {
     refresh: jest.fn(),
     copyLink: jest.fn(),
     updateApprovalStatus: jest.fn(),
+    startReview: jest.fn(),
+    stopReview: jest.fn(),
     merge: jest.fn(),
     postComment: jest.fn(),
     editComment: jest.fn(),

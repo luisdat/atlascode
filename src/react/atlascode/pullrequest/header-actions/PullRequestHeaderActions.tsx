@@ -10,6 +10,7 @@ import { ApproveButton } from './ApproveButton';
 import { DraftStatusButton } from './DraftStatusButton';
 import { MergeDialog } from './MergeDialog';
 import { RequestChangesButton } from './RequestChangesButton';
+import { ReviewButton } from './ReviewButton';
 
 export interface PullRequestHeaderActionsProps {
     state: PullRequestDetailsState;
@@ -61,6 +62,14 @@ export const PullRequestHeaderActions: React.FC<PullRequestHeaderActionsProps> =
                     }
                     status={currentUserApprovalStatus}
                     onApprove={controller.updateApprovalStatus}
+                />
+            </Box>
+            <Box marginLeft={1} hidden={state.loadState.basicData}>
+                <ReviewButton
+                    isReviewing={state.isReviewing}
+                    pendingCommentCount={state.pendingCommentCount}
+                    onStartReview={controller.startReview}
+                    onStopReview={controller.stopReview}
                 />
             </Box>
             <Box marginLeft={1} hidden={state.loadState.basicData}>

@@ -27,6 +27,9 @@ export interface PullRequestDetailsActionApi {
     updateCommits(pr: PullRequest): Promise<Commit[]>;
     updateReviewers(pr: PullRequest, newReviewers: User[]): Promise<Reviewer[]>;
     updateApprovalStatus(pr: PullRequest, status: ApprovalStatus): Promise<ApprovalStatus>;
+    getReviewState(pr: PullRequest): { isReviewing: boolean; pendingCommentCount: number };
+    startReview(pr: PullRequest): { isReviewing: boolean; pendingCommentCount: number };
+    stopReview(pr: PullRequest): Promise<{ isReviewing: boolean; pendingCommentCount: number }>;
     checkout(pr: PullRequest): Promise<string>;
     getCurrentBranchName(pr: PullRequest): string;
     getComments(pr: PullRequest): Promise<Comment[]>;
