@@ -29,6 +29,7 @@ import { PullRequestDetailsActionApi } from '../../lib/webview/controller/pullre
 import { Logger } from '../../logger';
 import { getArgsForDiffView } from '../../views/pullrequest/diffViewHelper';
 import { addSourceRemoteIfNeededForPR } from '../../views/pullrequest/gitActions';
+import { prFileViewedManager } from '../../views/pullrequest/prFileViewedManager';
 import {
     addTasksToCommentHierarchy,
     addTaskToCommentHierarchy,
@@ -188,6 +189,14 @@ export class VSCPullRequestDetailsActionApi implements PullRequestDetailsActionA
         await Container.bitbucketContext.prCommentController.stopReview(pr.data.url);
         vscode.commands.executeCommand(Commands.BitbucketRefreshPullRequests);
         return this.getReviewState(pr);
+    }
+
+    getViewedFiles(pr: PullRequest): string[] {
+        return prFileViewedManager.getViewedFiles(pr.data.url);
+    }
+
+    async setFileViewed(pr: PullRequest, file: string, viewed: boolean): Promise<string[]> {
+        return prFileViewedManager.setFileViewed(pr.data.url, file, viewed);
     }
 
     getCurrentBranchName(pr: PullRequest): string {

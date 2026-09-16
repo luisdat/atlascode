@@ -150,6 +150,8 @@ describe('PullRequestDetailsWebviewController', () => {
             editTask: jest.fn(),
             deleteTask: jest.fn(),
             handleEditorFocus: jest.fn(),
+            getViewedFiles: jest.fn().mockReturnValue([]),
+            setFileViewed: jest.fn().mockResolvedValue([]),
         };
         mockCommonHandler = {
             onMessageReceived: jest.fn(),

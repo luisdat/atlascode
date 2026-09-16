@@ -37,6 +37,7 @@ export enum PullRequestDetailsActionType {
     HandleEditorFocus = 'handleEditorFocus',
     FetchImageRequest = 'fetchImageRequest',
     FetchAttachmentRequest = 'fetchAttachmentRequest',
+    ToggleFileViewed = 'toggleFileViewed',
 }
 
 export type PullRequestDetailsAction =
@@ -62,6 +63,7 @@ export type PullRequestDetailsAction =
     | ReducerAction<PullRequestDetailsActionType.HandleEditorFocus, HandleEditorFocusAction>
     | ReducerAction<PullRequestDetailsActionType.FetchImageRequest, FetchImageRequestAction>
     | ReducerAction<PullRequestDetailsActionType.FetchAttachmentRequest, FetchAttachmentRequestAction>
+    | ReducerAction<PullRequestDetailsActionType.ToggleFileViewed, ToggleFileViewedAction>
     | CommonAction;
 
 export interface FetchUsersRequestAction {
@@ -148,4 +150,9 @@ export interface FetchImageRequestAction {
 export interface FetchAttachmentRequestAction {
     url: string;
     filename: string;
+}
+
+export interface ToggleFileViewedAction {
+    file: string;
+    viewed: boolean;
 }

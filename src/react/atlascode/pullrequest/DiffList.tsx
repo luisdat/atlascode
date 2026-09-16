@@ -1,5 +1,6 @@
 import {
     Box,
+    Checkbox,
     Chip,
     Link,
     Table,
@@ -48,14 +49,26 @@ const useStyles = makeStyles((theme: Theme) => ({
     fileStatusCopied: { backgroundColor: '#fff', borderColor: '#f2ae00', color: '#f29900' },
     fileStatusConflict: { backgroundColor: '#f6c342', borderColor: '#f6c342', color: '#594300' },
     fileStatusDefault: { backgroundColor: '#fff', borderColor: '#881be0', color: '#7a44a6' },
+    fileUnviewed: {
+        fontWeight: 'bold',
+        color: theme.palette.text.primary,
+    },
+    fileViewed: {
+        fontWeight: 'normal',
+        color: theme.palette.text.secondary,
+    },
 }));
 
 export const DiffList: React.FunctionComponent<{
     fileDiffs: FileDiff[];
     openDiffHandler: (filediff: FileDiff) => void;
     conflictedFiles: string[];
+    viewedFiles?: string[];
+    onToggleViewed?: (file: string, viewed: boolean) => void;
 }> = (props) => {
     const classes = useStyles();
+    const viewedFiles = props.viewedFiles ?? [];
+    const onToggleViewed = props.onToggleViewed;
 
     const fileStatusToString = (status: FileStatus) => {
         switch (status) {
@@ -121,58 +134,87 @@ export const DiffList: React.FunctionComponent<{
         <TableContainer>
             <Table size="small" className={classes.table} aria-label="commits list">
                 <TableBody>
-                    {props.fileDiffs.map((row) => (
-                        <TableRow key={row.file}>
-                            <TableCell className={classes.tableCell} />
-                            <TableCell className={classes.tableCell} align="center">
-                                <Chip
-                                    className={clsx(classes.chip, classes.linesAdded)}
-                                    label={`+${row.linesAdded}`}
-                                    size="small"
-                                />
-                            </TableCell>
-                            <TableCell className={classes.tableCell} align="center">
-                                <Chip
-                                    className={clsx(classes.chip, classes.linesRemoved)}
-                                    label={`-${row.linesRemoved}`}
-                                    size="small"
-                                />
-                            </TableCell>
-                            <TableCell className={classes.tableCell}>
-                                <Tooltip
-                                    title={`${fileStatusToString(row.status)} ${
-                                        row.similarity ? `(${row.similarity}% similar)` : ''
-                                    }`}
-                                >
+                    {props.fileDiffs.map((row) => {
+                        const isViewed = viewedFiles.includes(row.file ?? '');
+                        return (
+                            <TableRow key={row.file}>
+                                <TableCell className={classes.tableCell}>
+                                    {onToggleViewed && (
+                                        <Tooltip title={isViewed ? 'Mark as not reviewed' : 'Mark as reviewed'}>
+                                            <Checkbox
+                                                size="small"
+                                                checked={isViewed}
+                                                onChange={(e) => onToggleViewed(row.file ?? '', e.target.checked)}
+                                            />
+                                        </Tooltip>
+                                    )}
+                                </TableCell>
+                                <TableCell className={classes.tableCell} align="center">
                                     <Chip
-                                        className={clsx(classes.chip, fileStatusClassName(row.status))}
-                                        label={
-                                            <Typography className={classes.monospace}>
-                                                {row.status.substring(0, 1)}
-                                            </Typography>
-                                        }
+                                        className={clsx(classes.chip, classes.linesAdded)}
+                                        label={`+${row.linesAdded}`}
                                         size="small"
-                                        variant="outlined"
                                     />
-                                </Tooltip>
-                            </TableCell>
-                            <TableCell className={classes.tableCell}>
-                                {ConflictChip(row, props.conflictedFiles)}
-                            </TableCell>
-                            <TableCell className={classes.tableCell}>
-                                <Link component="button" onClick={() => props.openDiffHandler(row)}>
-                                    <Typography>{row.file}</Typography>
-                                </Link>
-                            </TableCell>
-                            <TableCell className={classes.tableCell}>
-                                <Box hidden={!row.hasComments}>
-                                    <Tooltip title={'contains comments'}>
-                                        <Typography>💬</Typography>
+                                </TableCell>
+                                <TableCell className={classes.tableCell} align="center">
+                                    <Chip
+                                        className={clsx(classes.chip, classes.linesRemoved)}
+                                        label={`-${row.linesRemoved}`}
+                                        size="small"
+                                    />
+                                </TableCell>
+                                <TableCell className={classes.tableCell}>
+                                    <Tooltip
+                                        title={`${fileStatusToString(row.status)} ${
+                                            row.similarity ? `(${row.similarity}% similar)` : ''
+                                        }`}
+                                    >
+                                        <Chip
+                                            className={clsx(classes.chip, fileStatusClassName(row.status))}
+                                            label={
+                                                <Typography className={classes.monospace}>
+                                                    {row.status.substring(0, 1)}
+                                                </Typography>
+                                            }
+                                            size="small"
+                                            variant="outlined"
+                                        />
                                     </Tooltip>
-                                </Box>
-                            </TableCell>
-                        </TableRow>
-                    ))}
+                                </TableCell>
+                                <TableCell className={classes.tableCell}>
+                                    {ConflictChip(row, props.conflictedFiles)}
+                                </TableCell>
+                                <TableCell className={classes.tableCell}>
+                                    <Link
+                                        component="button"
+                                        onClick={() => {
+                                            props.openDiffHandler(row);
+                                            if (onToggleViewed && !isViewed) {
+                                                onToggleViewed(row.file ?? '', true);
+                                            }
+                                        }}
+                                    >
+                                        <Typography
+                                            className={
+                                                onToggleViewed
+                                                    ? clsx(isViewed ? classes.fileViewed : classes.fileUnviewed)
+                                                    : undefined
+                                            }
+                                        >
+                                            {row.file}
+                                        </Typography>
+                                    </Link>
+                                </TableCell>
+                                <TableCell className={classes.tableCell}>
+                                    <Box hidden={!row.hasComments}>
+                                        <Tooltip title={'contains comments'}>
+                                            <Typography>💬</Typography>
+                                        </Tooltip>
+                                    </Box>
+                                </TableCell>
+                            </TableRow>
+                        );
+                    })}
                 </TableBody>
             </Table>
         </TableContainer>
