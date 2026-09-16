@@ -1,0 +1,94 @@
+name: ATM Internal Release
+
+# Builds and publishes an internal-only .vsix as a GitHub Release on this fork
+# every time a commit lands on main. This does NOT touch the VS Code
+# Marketplace or OpenVSX (package.json's "publisher" is still "atlassian",
+# and we have no credentials for - nor any business publishing to - that
+# listing). Versions look like "<upstream-base-version>+atmp<N>", where N
+# auto-increments from the latest matching tag on every run. The upstream
+# release.yaml/release-nightly.yaml workflows are disabled on this fork for
+# the same reason - they exist for Atlassian's own Marketplace publishing.
+#
+# To reset/bump the base version (e.g. after merging a newer upstream
+# release), push a tag like "v4.0.34+atmp1" manually and this workflow will
+# increment from there on the next push.
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.repository == 'luisdat/atlascode'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute next version
+        id: version
+        run: |
+          git fetch --tags --force
+          LATEST_TAG=$(git tag --list 'v*+atmp*' | sort -t+ -k1,1V -k2,2V | tail -1)
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No existing 'vX.Y.Z+atmpN' tag found. Push one manually to bootstrap" >&2
+            echo "the counter, e.g.: git tag v4.0.32+atmp1 && git push origin v4.0.32+atmp1" >&2
+            exit 1
+          fi
+
+          BASE_VERSION=$(echo "$LATEST_TAG" | sed -E 's/^v(.+)\+atmp[0-9]+$/\1/')
+          COUNTER=$(echo "$LATEST_TAG" | sed -E 's/^v.+\+atmp([0-9]+)$/\1/')
+          NEXT_COUNTER=$((COUNTER + 1))
+          NEW_VERSION="${BASE_VERSION}+atmp${NEXT_COUNTER}"
+          NEW_TAG="v${NEW_VERSION}"
+
+          echo "Latest tag: $LATEST_TAG -> next: $NEW_TAG"
+          echo "new_version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "new_tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --no-audit
+
+      - name: Stamp version (not committed - build-only)
+        run: npm pkg set version=${{ steps.version.outputs.new_version }}
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Unit tests
+        run: npm run test:nocoverage
+
+      - name: Compile
+        run: npm run compile
+
+      - name: Package extension
+        run: npx vsce package --no-dependencies --baseContentUrl https://raw.githubusercontent.com/atlassian/atlascode/main/
+
+      - name: Tag release commit
+        run: |
+          git tag ${{ steps.version.outputs.new_tag }}
+          git push origin ${{ steps.version.outputs.new_tag }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.new_tag }}
+          name: ${{ steps.version.outputs.new_tag }}
+          files: atlascode-*.vsix
