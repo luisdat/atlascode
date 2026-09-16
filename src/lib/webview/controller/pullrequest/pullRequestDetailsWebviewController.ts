@@ -117,6 +117,7 @@ export class PullRequestDetailsWebviewController implements WebviewController<Pu
                 currentBranchName: this.api.getCurrentBranchName(this.pr),
                 isReviewing: reviewState.isReviewing,
                 pendingCommentCount: reviewState.pendingCommentCount,
+                viewedFiles: this.api.getViewedFiles(this.pr),
             });
 
             //Launch several independent, async processes
@@ -627,6 +628,19 @@ export class PullRequestDetailsWebviewController implements WebviewController<Pu
                     await this.api.fetchAttachment(this.pr, msg.url, msg.filename);
                 } catch (e) {
                     this.logger.error(e, 'Error fetching attachment');
+                }
+                break;
+            }
+
+            case PullRequestDetailsActionType.ToggleFileViewed: {
+                try {
+                    const viewedFiles = await this.api.setFileViewed(this.pr, msg.file, msg.viewed);
+                    this.postMessage({
+                        type: PullRequestDetailsMessageType.UpdateViewedFiles,
+                        viewedFiles: viewedFiles,
+                    });
+                } catch (e) {
+                    this.logger.error(e, 'Error updating viewed file state');
                 }
                 break;
             }

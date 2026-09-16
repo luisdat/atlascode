@@ -84,6 +84,8 @@ export const PullRequestMainContent: React.FC<PullRequestMainContentProps> = ({
                             fileDiffs={state.fileDiffs}
                             openDiffHandler={controller.openDiff}
                             conflictedFiles={state.conflictedFiles}
+                            viewedFiles={state.viewedFiles}
+                            onToggleViewed={controller.toggleFileViewed}
                         />
                     </BasicPanel>
                 </Grid>

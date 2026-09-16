@@ -43,6 +43,7 @@ export enum PullRequestDetailsMessageType {
     UpdateTasks = 'updateTasks',
     UpdateConflictedFiles = 'updateConflictedFiles',
     FetchImageResponse = 'fetchImageResponse',
+    UpdateViewedFiles = 'updateViewedFiles',
 }
 
 export type PullRequestDetailsMessage =
@@ -61,7 +62,8 @@ export type PullRequestDetailsMessage =
     | ReducerAction<PullRequestDetailsMessageType.UpdateBuildStatuses, PullRequestDetailsBuildStatusesMessage>
     | ReducerAction<PullRequestDetailsMessageType.UpdateMergeStrategies, PullRequestDetailsMergeStrategiesMessage>
     | ReducerAction<PullRequestDetailsMessageType.UpdateRelatedJiraIssues, PullRequestDetailsRelatedJiraIssuesMessage>
-    | ReducerAction<PullRequestDetailsMessageType.UpdateTasks, PullRequestDetailsTasksMessage>;
+    | ReducerAction<PullRequestDetailsMessageType.UpdateTasks, PullRequestDetailsTasksMessage>
+    | ReducerAction<PullRequestDetailsMessageType.UpdateViewedFiles, PullRequestDetailsViewedFilesMessage>;
 export type PullRequestDetailsResponse =
     | ReducerAction<PullRequestDetailsMessageType.CheckoutBranch, PullRequestDetailsCheckoutBranchMessage>
     | ReducerAction<PullRequestDetailsMessageType.FetchUsersResponse, FetchUsersResponseMessage>
@@ -86,6 +88,7 @@ export interface PullRequestDetailsInitMessage {
     conflictedFiles: string[];
     isReviewing: boolean;
     pendingCommentCount: number;
+    viewedFiles: string[];
     mergeStrategies: MergeStrategy[];
     buildStatuses: BuildStatus[];
     relatedJiraIssues: MinimalIssue<DetailedSiteInfo>[];
@@ -175,6 +178,10 @@ export interface PullRequestDetailsTasksMessage {
     comments: Comment[];
 }
 
+export interface PullRequestDetailsViewedFilesMessage {
+    viewedFiles: string[];
+}
+
 export const emptyPullRequestDetailsInitMessage: PullRequestDetailsInitMessage = {
     pr: emptyPullRequest,
     commits: [],
@@ -188,6 +195,7 @@ export const emptyPullRequestDetailsInitMessage: PullRequestDetailsInitMessage =
     tasks: [],
     isReviewing: false,
     pendingCommentCount: 0,
+    viewedFiles: [],
     loadState: {
         // true indicates this particular component is still loading
         basicData: true,

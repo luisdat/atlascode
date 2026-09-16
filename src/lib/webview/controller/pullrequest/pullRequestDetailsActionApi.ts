@@ -30,6 +30,8 @@ export interface PullRequestDetailsActionApi {
     getReviewState(pr: PullRequest): { isReviewing: boolean; pendingCommentCount: number };
     startReview(pr: PullRequest): { isReviewing: boolean; pendingCommentCount: number };
     stopReview(pr: PullRequest): Promise<{ isReviewing: boolean; pendingCommentCount: number }>;
+    getViewedFiles(pr: PullRequest): string[];
+    setFileViewed(pr: PullRequest, file: string, viewed: boolean): Promise<string[]>;
     checkout(pr: PullRequest): Promise<string>;
     getCurrentBranchName(pr: PullRequest): string;
     getComments(pr: PullRequest): Promise<Comment[]>;

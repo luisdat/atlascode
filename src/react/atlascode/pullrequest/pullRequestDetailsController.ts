@@ -38,6 +38,7 @@ import {
     PullRequestDetailsSummaryMessage,
     PullRequestDetailsTasksMessage,
     PullRequestDetailsTitleMessage,
+    PullRequestDetailsViewedFilesMessage,
 } from '../../../lib/ipc/toUI/pullRequestDetails';
 import { ConnectionTimeout } from '../../../util/time';
 import { PostMessageFunc, useMessagingApi } from '../messagingApi';
@@ -54,6 +55,7 @@ export interface PullRequestDetailsControllerApi {
     updateApprovalStatus: (status: ApprovalStatus) => void;
     startReview: () => void;
     stopReview: () => void;
+    toggleFileViewed: (file: string, viewed: boolean) => void;
     checkoutBranch: () => void;
     postComment: (rawText: string, parentId?: string) => Promise<void>;
     editComment: (rawContent: string, commentId: string) => Promise<void>;
@@ -94,6 +96,7 @@ const emptyApi: PullRequestDetailsControllerApi = {
     updateApprovalStatus: (status: ApprovalStatus) => {},
     startReview: () => {},
     stopReview: () => {},
+    toggleFileViewed: (file: string, viewed: boolean) => {},
     checkoutBranch: () => {},
     postComment: async (rawText: string, parentId?: string) => {},
     editComment: async (rawContent: string, commentId: string) => {},
@@ -148,6 +151,7 @@ enum PullRequestDetailsUIActionType {
     UpdateMergeStrategies = 'updateMergeStrategies',
     UpdateRelatedJiraIssues = 'updateRelatedJiraIssues',
     SetCheckoutLoading = 'setCheckoutLoading',
+    UpdateViewedFiles = 'updateViewedFiles',
 }
 
 type PullRequestDetailsUIAction =
@@ -180,7 +184,8 @@ type PullRequestDetailsUIAction =
           { data: PullRequestDetailsRelatedJiraIssuesMessage }
       >
     | ReducerAction<PullRequestDetailsUIActionType.Loading>
-    | ReducerAction<PullRequestDetailsUIActionType.SetCheckoutLoading, { data: { isLoading: boolean } }>;
+    | ReducerAction<PullRequestDetailsUIActionType.SetCheckoutLoading, { data: { isLoading: boolean } }>
+    | ReducerAction<PullRequestDetailsUIActionType.UpdateViewedFiles, { data: PullRequestDetailsViewedFilesMessage }>;
 
 function pullRequestDetailsReducer(
     state: PullRequestDetailsState,
@@ -322,6 +327,12 @@ function pullRequestDetailsReducer(
                 isCheckingOutBranch: action.data.isLoading,
             };
         }
+        case PullRequestDetailsUIActionType.UpdateViewedFiles: {
+            return {
+                ...state,
+                viewedFiles: action.data.viewedFiles,
+            };
+        }
         default:
             return defaultStateGuard(state, action);
     }
@@ -394,6 +405,10 @@ export function usePullRequestDetailsController(): [PullRequestDetailsState, Pul
             }
             case PullRequestDetailsMessageType.UpdateRelatedJiraIssues: {
                 dispatch({ type: PullRequestDetailsUIActionType.UpdateRelatedJiraIssues, data: message });
+                break;
+            }
+            case PullRequestDetailsMessageType.UpdateViewedFiles: {
+                dispatch({ type: PullRequestDetailsUIActionType.UpdateViewedFiles, data: message });
                 break;
             }
             default: {
@@ -520,6 +535,13 @@ export function usePullRequestDetailsController(): [PullRequestDetailsState, Pul
         dispatch({ type: PullRequestDetailsUIActionType.Loading });
         postMessage({ type: PullRequestDetailsActionType.StopReview });
     }, [postMessage]);
+
+    const toggleFileViewed = useCallback(
+        (file: string, viewed: boolean) => {
+            postMessage({ type: PullRequestDetailsActionType.ToggleFileViewed, file: file, viewed: viewed });
+        },
+        [postMessage],
+    );
 
     const checkoutBranch = useCallback(() => {
         dispatch({ type: PullRequestDetailsUIActionType.Loading });
@@ -779,6 +801,7 @@ export function usePullRequestDetailsController(): [PullRequestDetailsState, Pul
             updateApprovalStatus: updateApprovalStatus,
             startReview: startReview,
             stopReview: stopReview,
+            toggleFileViewed: toggleFileViewed,
             checkoutBranch: checkoutBranch,
             postComment: postComment,
             editComment: editComment,
@@ -806,6 +829,7 @@ export function usePullRequestDetailsController(): [PullRequestDetailsState, Pul
         updateApprovalStatus,
         startReview,
         stopReview,
+        toggleFileViewed,
         checkoutBranch,
         postComment,
         editComment,
