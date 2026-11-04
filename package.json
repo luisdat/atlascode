@@ -468,6 +468,16 @@
                 "category": "Bitbucket"
             },
             {
+                "command": "atlascode.applySitesConfig",
+                "title": "Apply Sites Configuration File",
+                "category": "Atlassian"
+            },
+            {
+                "command": "atlascode.openSitesConfig",
+                "title": "Open Sites Configuration File",
+                "category": "Atlassian"
+            },
+            {
                 "command": "atlascode.bb.openInBitbucket",
                 "title": "Open in Bitbucket",
                 "category": "Bitbucket"
@@ -1289,6 +1299,12 @@
                     ],
                     "description": "Specifies how much (if any) output will be sent to the Atlassian output channel",
                     "scope": "window"
+                },
+                "atlascode.sitesConfigFile": {
+                    "type": "string",
+                    "default": "",
+                    "markdownDescription": "Path to a JSON file that automatically configures Jira and Bitbucket Server / Data Center sites. Each entry names an environment variable that holds the token. When empty, the `ATLASCODE_SITES_CONFIG` environment variable is used, and otherwise `~/.atlascode/sites.json`.",
+                    "scope": "machine"
                 },
                 "atlascode.configurationTarget": {
                     "type": "string",
