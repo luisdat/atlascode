@@ -4,14 +4,13 @@ name: ATM Internal Release
 # every time a commit lands on main. This does NOT touch the VS Code
 # Marketplace or OpenVSX (package.json's "publisher" is still "atlassian",
 # and we have no credentials for - nor any business publishing to - that
-# listing). Versions look like "<upstream-base-version>+atmp<N>", where N
-# auto-increments from the latest matching tag on every run. The upstream
-# release.yaml/release-nightly.yaml workflows are disabled on this fork for
-# the same reason - they exist for Atlassian's own Marketplace publishing.
-#
-# To reset/bump the base version (e.g. after merging a newer upstream
-# release), push a tag like "v4.0.34+atmp1" manually and this workflow will
-# increment from there on the next push.
+# listing). Versions look like "<upstream-base-version>+atmp<N>". The base
+# version is taken automatically from the newest stable atlassian/atlascode
+# tag (vX.Y.Z) contained in the commit being built, and N auto-increments per
+# base version, restarting at 1 whenever a newer upstream release is merged.
+# The upstream release.yaml/release-nightly.yaml workflows are disabled on
+# this fork for the same reason - they exist for Atlassian's own Marketplace
+# publishing.
 
 on:
   push:
@@ -39,21 +38,36 @@ jobs:
         id: version
         run: |
           git fetch --tags --force
-          LATEST_TAG=$(git tag --list 'v*+atmp*' | sort -t+ -k1,1V -k2,2V | tail -1)
 
-          if [ -z "$LATEST_TAG" ]; then
-            echo "No existing 'vX.Y.Z+atmpN' tag found. Push one manually to bootstrap" >&2
-            echo "the counter, e.g.: git tag v4.0.32+atmp1 && git push origin v4.0.32+atmp1" >&2
+          # The base version always comes from the official upstream repo: the
+          # newest stable upstream tag (plain vX.Y.Z, no -nightly etc.) whose
+          # commit is already merged into this build. Upstream tags are fetched
+          # into a private ref namespace so they never mix with our atmp tags.
+          git fetch --no-tags --force https://github.com/atlassian/atlascode.git \
+            '+refs/tags/v*:refs/upstream-tags/v*'
+
+          BASE_VERSION=""
+          for t in $(git for-each-ref --format='%(refname:strip=2)' refs/upstream-tags/ \
+                      | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -rV); do
+            if git merge-base --is-ancestor "refs/upstream-tags/$t" HEAD; then
+              BASE_VERSION="${t#v}"
+              break
+            fi
+          done
+
+          if [ -z "$BASE_VERSION" ]; then
+            echo "No stable upstream vX.Y.Z tag is an ancestor of HEAD." >&2
             exit 1
           fi
 
-          BASE_VERSION=$(echo "$LATEST_TAG" | sed -E 's/^v(.+)\+atmp[0-9]+$/\1/')
-          COUNTER=$(echo "$LATEST_TAG" | sed -E 's/^v.+\+atmp([0-9]+)$/\1/')
-          NEXT_COUNTER=$((COUNTER + 1))
+          # Counter restarts at 1 for each new upstream base version.
+          COUNTER=$(git tag --list "v${BASE_VERSION}+atmp*" \
+                      | sed -E 's/^v.+\+atmp([0-9]+)$/\1/' | sort -n | tail -1)
+          NEXT_COUNTER=$(( ${COUNTER:-0} + 1 ))
           NEW_VERSION="${BASE_VERSION}+atmp${NEXT_COUNTER}"
           NEW_TAG="v${NEW_VERSION}"
 
-          echo "Latest tag: $LATEST_TAG -> next: $NEW_TAG"
+          echo "Upstream base: v$BASE_VERSION, last counter: ${COUNTER:-none} -> next: $NEW_TAG"
           echo "new_version=${NEW_VERSION}" >> "$GITHUB_OUTPUT"
           echo "new_tag=${NEW_TAG}" >> "$GITHUB_OUTPUT"
 
