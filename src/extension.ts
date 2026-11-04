@@ -28,6 +28,7 @@ import {
 import { registerResources } from './resources';
 import { RovodevStaticConfig } from './rovo-dev/api/rovodevStaticConfig';
 import { RovoDevProcessManager } from './rovo-dev/rovoDevProcessManager';
+import { SitesConfigManager } from './sitesConfig/sitesConfigManager';
 import { GitExtension } from './typings/git';
 import { Features } from './util/featureFlags';
 import Performance from './util/perf';
@@ -97,6 +98,16 @@ export async function activate(context: ExtensionContext) {
             );
 
             NotificationManagerImpl.getInstance().listen();
+
+            const sitesConfigManager = new SitesConfigManager({
+                globalState: context.globalState,
+                siteManager: Container.siteManager,
+                credentialManager: Container.credentialManager,
+                loginManager: Container.loginManager,
+                removeClient: (site) => Container.clientManager.removeClient(site),
+            });
+            context.subscriptions.push(sitesConfigManager);
+            sitesConfigManager.start();
         }
 
         startListening((site: DetailedSiteInfo) => {
