@@ -7,7 +7,8 @@
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	"features": {
-		"ghcr.io/nils-geistmann/devcontainers-features/zsh": "0.0.6"
+		"ghcr.io/nils-geistmann/devcontainers-features/zsh": "0.0.6",
+		"ghcr.io/devcontainers/features/github-cli:1": {}
 	},
 
 	// Use 'forwardPorts' to make a list of ports inside the container available locally.
