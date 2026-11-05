@@ -3,6 +3,7 @@ import gitUrlParse from 'git-url-parse';
 import { DetailedSiteInfo, ProductBitbucket } from '../atlclients/authInfo';
 import { bbAPIConnectivityError } from '../constants';
 import { Container } from '../container';
+import { Logger } from '../logger';
 import { Remote, Repository } from '../typings/git';
 import { BitbucketApi, BitbucketSite, WorkspaceRepo } from './model';
 
@@ -43,11 +44,67 @@ export function getBitbucketCloudRemotes(repository: Repository): Remote[] {
     });
 }
 
-export function siteDetailsForRemote(remote: Remote): DetailedSiteInfo | undefined {
-    const parsed = parseGitUrl(urlForRemote(remote));
+const windowsDrivePathRegEx = /^[a-zA-Z]:[\\/]/;
+const urlSchemeRegEx = /^([a-zA-Z][a-zA-Z0-9+.-]*):\/\//;
+
+/**
+ * Returns true when a git remote URL points to a repository on the local file system rather than to a server.
+ * Follows git's own rules: `file://` URLs, Windows drive paths, and anything without a scheme where no `:` appears
+ * before the first `/` (absolute paths, relative paths, bare directory names). Everything else (`https://`, `ssh://`,
+ * and SCP-like `user@host:path`) is a network remote.
+ */
+export function isLocalGitRemoteUrl(url: string): boolean {
+    const scheme = url.match(urlSchemeRegEx);
+    if (scheme) {
+        return scheme[1].toLowerCase() === 'file';
+    }
+
+    if (windowsDrivePathRegEx.test(url)) {
+        return true;
+    }
+
+    const colon = url.indexOf(':');
+    if (colon < 0) {
+        return true;
+    }
+
+    const slash = url.indexOf('/');
+    return slash >= 0 && slash < colon;
+}
+
+/**
+ * Parses a remote's URL and finds the Bitbucket site it belongs to.
+ * Returns undefined for remotes without a URL, local remotes, unparseable URLs, and hosts without a registered site.
+ * Never throws for a bad remote, so one remote cannot stop the others (or other repositories) from being processed.
+ */
+function bitbucketRemoteInfo(remote: Remote): { site: DetailedSiteInfo; parsed: gitUrlParse.GitUrl } | undefined {
+    const url = urlForRemote(remote);
+    if (!url || isLocalGitRemoteUrl(url)) {
+        // Local remotes have no hostname to match: an empty hostname would match any registered site.
+        return undefined;
+    }
+
+    let parsed: gitUrlParse.GitUrl;
+    try {
+        parsed = parseGitUrl(url);
+    } catch (err) {
+        // URL parsing errors from `parse-url` carry the input as `subject_url`; anything else is unexpected.
+        if (err?.subject_url === undefined) {
+            throw err;
+        }
+        // Drop the URL from the error since it may contain credentials.
+        err.subject_url = undefined;
+        Logger.error(err, `Unable to parse the URL of git remote '${remote.name}'`);
+        return undefined;
+    }
+
+    if (!parsed.resource) {
+        return undefined;
+    }
+
     const site = Container.siteManager.getSiteForHostname(ProductBitbucket, parsed.resource);
     if (site) {
-        return site;
+        return { site, parsed };
     }
 
     const hostname = parsed.source;
@@ -56,40 +113,29 @@ export function siteDetailsForRemote(remote: Remote): DetailedSiteInfo | undefin
         hostname.includes('bitbucket_org') ||
         hostname.includes('bitbucket-org')
     ) {
-        return Container.siteManager.getSiteForHostname(ProductBitbucket, 'bitbucket.org');
+        const cloudSite = Container.siteManager.getSiteForHostname(ProductBitbucket, 'bitbucket.org');
+        if (cloudSite) {
+            return { site: cloudSite, parsed };
+        }
     }
 
     return undefined;
 }
 
+export function siteDetailsForRemote(remote: Remote): DetailedSiteInfo | undefined {
+    return bitbucketRemoteInfo(remote)?.site;
+}
+
 export function bitbucketSiteForRemote(remote: Remote): BitbucketSite | undefined {
-    const parsed = parseGitUrl(urlForRemote(remote));
-    const site = Container.siteManager.getSiteForHostname(ProductBitbucket, parsed.resource);
-    if (site) {
-        return {
-            details: site,
-            ownerSlug: parsed.owner,
-            repoSlug: parsed.name,
-        };
+    const info = bitbucketRemoteInfo(remote);
+    if (!info) {
+        return undefined;
     }
-
-    const hostname = parsed.source;
-    if (
-        hostname.includes('bitbucket.org') ||
-        hostname.includes('bitbucket_org') ||
-        hostname.includes('bitbucket-org')
-    ) {
-        const site = Container.siteManager.getSiteForHostname(ProductBitbucket, 'bitbucket.org');
-        if (site) {
-            return {
-                details: site,
-                ownerSlug: parsed.owner,
-                repoSlug: parsed.name,
-            };
-        }
-    }
-
-    return undefined;
+    return {
+        details: info.site,
+        ownerSlug: info.parsed.owner,
+        repoSlug: info.parsed.name,
+    };
 }
 
 export function urlForRemote(remote: Remote): string {
