@@ -1290,7 +1290,7 @@
                 },
                 "atlascode.outputLevel": {
                     "type": "string",
-                    "default": "silent",
+                    "default": "errors",
                     "enum": [
                         "silent",
                         "errors",

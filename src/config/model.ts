@@ -283,7 +283,7 @@ const emptyBitbucketConfig: BitbucketConfig = {
 
 export const emptyConfig: IConfig = {
     issueSuggestionContextLevel: IssueSuggestionContextLevel.CodeContext,
-    outputLevel: OutputLevel.Silent,
+    outputLevel: OutputLevel.Errors,
     enableCharles: false,
     charlesCertPath: '',
     charlesDebugOnly: false,
