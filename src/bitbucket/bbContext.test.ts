@@ -603,6 +603,40 @@ describe('BitbucketContext', () => {
             );
             expect(workspaceRepoFor).toHaveBeenCalledWith(goodRepo);
         });
+
+        it('should keep repositories before and after one that fails to process', async () => {
+            const makeRepo = (path: string) => ({
+                ...mockRepository,
+                rootUri: Uri.file(path),
+                state: {
+                    HEAD: { name: 'main' },
+                    remotes: [{ name: 'origin', fetchUrl: `https://bitbucket.example.com/scm/prj${path}.git` }],
+                },
+                status: jest.fn().mockResolvedValue(undefined),
+            });
+            const before = makeRepo('/test/before');
+            const broken = makeRepo('/test/broken');
+            const after = makeRepo('/test/after');
+
+            (workspaceRepoFor as jest.Mock).mockImplementation((repo: Repository) => {
+                if (repo.rootUri === broken.rootUri) {
+                    throw new Error('URL parsing failed.');
+                }
+                return { ...mockWorkspaceRepo, rootUri: repo.rootUri.toString() };
+            });
+            Object.defineProperty(mockGitApi, 'repositories', { value: [before, broken, after], writable: true });
+
+            bitbucketContext = new BitbucketContext(mockGitApi);
+            await new Promise((resolve) => setTimeout(resolve, 0));
+
+            const roots = bitbucketContext.getAllRepositories().map((r) => r.rootUri);
+            expect(roots).toEqual([before.rootUri.toString(), after.rootUri.toString()]);
+            expect(Logger.error).toHaveBeenCalledWith(
+                expect.any(Error),
+                expect.stringContaining('Error processing Bitbucket repository'),
+            );
+            expect(Logger.error).not.toHaveBeenCalledWith(expect.anything(), 'Error refreshing Bitbucket repositories');
+        });
     });
 
     describe('updateUsers', () => {

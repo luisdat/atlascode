@@ -4,7 +4,18 @@ import { ProductBitbucket } from '../atlclients/authInfo';
 import { OutputLevel } from '../config/model';
 import { Container } from '../container';
 import { Logger } from '../logger';
-import { parseGitUrl, urlForRemote } from './bbUtils';
+import { isLocalGitRemoteUrl, parseGitUrl, urlForRemote } from './bbUtils';
+
+function hostForDebug(url: string): string {
+    if (!url || isLocalGitRemoteUrl(url)) {
+        return 'local (not a Bitbucket remote)';
+    }
+    try {
+        return parseGitUrl(url).resource;
+    } catch {
+        return 'unparseable URL';
+    }
+}
 
 export function showBitbucketDebugInfo() {
     if (Container.config.outputLevel !== OutputLevel.Debug) {
@@ -34,7 +45,7 @@ export function showBitbucketDebugInfo() {
         remotes: wsRepo.siteRemotes.map((siteRemote) => ({
             name: siteRemote.remote.name,
             url: urlForRemote(siteRemote.remote),
-            host: parseGitUrl(urlForRemote(siteRemote.remote)).resource,
+            host: hostForDebug(urlForRemote(siteRemote.remote)),
             matchingBitbucketSite: siteRemote.site ? siteRemote.site.details.name : 'Not found',
         })),
     }));
