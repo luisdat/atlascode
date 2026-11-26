@@ -549,6 +549,8 @@ export class CreateIssueWebview
         };
         createData.type = 'update';
         createData.transformerProblems = Container.config.jira.showCreateIssueProblems ? this._screenData.problems : {};
+        createData.moveToAdvanced = Container.config.jira.createIssue?.moveToAdvanced ?? [];
+        createData.moveFromAdvanced = Container.config.jira.createIssue?.moveFromAdvanced ?? [];
 
         this.postMessage(createData);
     }
@@ -647,6 +649,8 @@ export class CreateIssueWebview
             createData.transformerProblems = Container.config.jira.showCreateIssueProblems
                 ? this._screenData.problems
                 : {};
+            createData.moveToAdvanced = Container.config.jira.createIssue?.moveToAdvanced ?? [];
+            createData.moveFromAdvanced = Container.config.jira.createIssue?.moveFromAdvanced ?? [];
 
             const paginatedResult = paginatedProjectsResult as { projects: Project[]; total: number; hasMore: boolean };
             createData.projectPagination = {
@@ -704,6 +708,8 @@ export class CreateIssueWebview
         const createData: CreateIssueData = this._screenData.issueTypeUIs[this._selectedIssueTypeId] as CreateIssueData;
         createData.type = 'update';
         createData.transformerProblems = Container.config.jira.showCreateIssueProblems ? this._screenData.problems : {};
+        createData.moveToAdvanced = Container.config.jira.createIssue?.moveToAdvanced ?? [];
+        createData.moveFromAdvanced = Container.config.jira.createIssue?.moveFromAdvanced ?? [];
         this.postMessage(createData);
     }
 

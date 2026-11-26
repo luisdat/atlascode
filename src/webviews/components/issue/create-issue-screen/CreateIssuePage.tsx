@@ -262,9 +262,23 @@ export default class CreateIssuePage extends AbstractIssueEditorPage<Emit, Accep
         this.advancedFields = [];
         this.commonFields = [];
 
+        const moveToAdvanced = (data.moveToAdvanced ?? []).map((value) => value.trim().toLowerCase()).filter(Boolean);
+        const moveFromAdvanced = (data.moveFromAdvanced ?? [])
+            .map((value) => value.trim().toLowerCase())
+            .filter(Boolean);
+
         orderedValues.forEach((field) => {
-            //we want assignee field in common
-            if (field.advanced && field.key !== 'assignee') {
+            const fieldIdentifiers = [field.key, field.name]
+                .map((value) => value?.trim().toLowerCase())
+                .filter(Boolean);
+            const matches = (configuredFields: string[]) =>
+                configuredFields.some((configuredField) => fieldIdentifiers.includes(configuredField));
+
+            // Fields listed to move out take precedence; otherwise, the move-in list
+            // and Jira metadata determine whether the field belongs in Advanced Options.
+            if (matches(moveFromAdvanced)) {
+                this.commonFields.push(field);
+            } else if (matches(moveToAdvanced) || field.advanced) {
                 this.advancedFields.push(field);
             } else {
                 this.commonFields.push(field);

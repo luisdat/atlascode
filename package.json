@@ -1384,6 +1384,24 @@
                     "description": "Show a link to view non-renderable fields on Jira create issue page",
                     "scope": "window"
                 },
+                "atlascode.jira.createIssue.moveToAdvanced": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [],
+                    "description": "Jira field IDs or names to always hide in the Advanced Options section of the create issue form",
+                    "scope": "window"
+                },
+                "atlascode.jira.createIssue.moveFromAdvanced": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [],
+                    "description": "Jira field IDs or names to always show outside the Advanced Options section of the create issue form",
+                    "scope": "window"
+                },
                 "atlascode.jira.explorer.enabled": {
                     "type": "boolean",
                     "default": true,

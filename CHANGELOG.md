@@ -2,6 +2,10 @@
 
 ## What's new in 4.0.33
 
+### Features
+
+- **Jira**: Added `jira.createIssue.moveToAdvanced` and `jira.createIssue.moveFromAdvanced` settings to customize which create-issue fields appear in Advanced Options.
+
 ### Security
 
 - Upgraded `dompurify` to 3.4.17 to fix multiple XSS sanitizer bypasses (critical `npm audit` advisory)

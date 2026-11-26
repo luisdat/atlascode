@@ -61,6 +61,12 @@ export interface JiraConfig {
     todoIssues: TodoIssues;
     startWorkBranchTemplate: StartWorkBranchTemplate;
     showCreateIssueProblems: boolean;
+    createIssue: JiraCreateIssueConfig;
+}
+
+export interface JiraCreateIssueConfig {
+    moveToAdvanced: string[];
+    moveFromAdvanced: string[];
 }
 
 export type LastCreatePreSelectedValues = {
@@ -206,6 +212,11 @@ const emptyStartWorkBranchTemplate: StartWorkBranchTemplate = {
     customTemplate: '{{prefix}}/{{issueKey}}-{{summary}}',
 };
 
+const emptyJiraCreateIssueConfig: JiraCreateIssueConfig = {
+    moveToAdvanced: [],
+    moveFromAdvanced: [],
+};
+
 const emptyJiraConfig: JiraConfig = {
     enabled: true,
     lastCreatePreSelectedValues: { siteId: '', projectKey: '', issueTypeId: '' },
@@ -217,6 +228,7 @@ const emptyJiraConfig: JiraConfig = {
     todoIssues: emptyTodoIssues,
     startWorkBranchTemplate: emptyStartWorkBranchTemplate,
     showCreateIssueProblems: false,
+    createIssue: emptyJiraCreateIssueConfig,
 };
 
 const emptyRovoDevConfig: RovoDevConfig = {

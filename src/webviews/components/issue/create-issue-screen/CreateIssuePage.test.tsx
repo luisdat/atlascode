@@ -138,6 +138,55 @@ describe('CreateIssuePage', () => {
         jest.clearAllMocks();
     });
 
+    describe('Advanced field overrides', () => {
+        it('moves fields into or out of Advanced Options by key or name', () => {
+            const component = new CreateIssuePage({});
+
+            component.updateInternals({
+                fields: {
+                    summary: {
+                        key: 'summary',
+                        name: 'Summary',
+                        required: true,
+                        uiType: UIType.Input,
+                        displayOrder: 1,
+                        valueType: ValueType.String,
+                        advanced: false,
+                        isArray: false,
+                        schema: 'summary',
+                    },
+                    environment: {
+                        key: 'environment',
+                        name: 'Environment',
+                        required: false,
+                        uiType: UIType.Input,
+                        displayOrder: 2,
+                        valueType: ValueType.String,
+                        advanced: true,
+                        isArray: false,
+                        schema: 'environment',
+                    },
+                    labels: {
+                        key: 'labels',
+                        name: 'Labels',
+                        required: false,
+                        uiType: UIType.Input,
+                        displayOrder: 3,
+                        valueType: ValueType.String,
+                        advanced: false,
+                        isArray: false,
+                        schema: 'labels',
+                    },
+                },
+                moveToAdvanced: ['summary'],
+                moveFromAdvanced: ['Environment'],
+            } as any);
+
+            expect(component['advancedFields'].map((field) => field.key)).toEqual(['summary']);
+            expect(component['commonFields'].map((field) => field.key)).toEqual(['environment', 'labels']);
+        });
+    });
+
     describe('Error state rendering', () => {
         it('should show ErrorBanner and form content when isErrorBannerOpen is true', () => {
             const component = new CreateIssuePage({});
