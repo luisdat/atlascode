@@ -73,6 +73,8 @@ export interface CreateIssueData extends Message {}
 export interface CreateIssueData extends IssueTypeUI<DetailedSiteInfo> {
     currentUser: User;
     transformerProblems: CreateMetaTransformerProblems;
+    moveToAdvanced: string[];
+    moveFromAdvanced: string[];
     projectPagination?: {
         total: number;
         loaded: number;
@@ -86,6 +88,8 @@ export const emptyCreateIssueData: CreateIssueData = {
     ...createEmptyIssueTypeUI(emptySiteInfo),
     currentUser: emptyUser,
     transformerProblems: {},
+    moveToAdvanced: [],
+    moveFromAdvanced: [],
 };
 
 export interface IssueEditError extends HostErrorMessage {
