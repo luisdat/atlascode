@@ -1,10 +1,12 @@
 ### [Report an Issue](https://github.com/atlassian/atlascode/issues)
 
-## What's new in 4.0.33
+## What's new in 4.0.34
 
 ### Features
 
 - **Jira**: Added `jira.createIssue.moveToAdvanced` and `jira.createIssue.moveFromAdvanced` settings to customize which create-issue fields appear in Advanced Options.
+
+## What's new in 4.0.33
 
 ### Security
 

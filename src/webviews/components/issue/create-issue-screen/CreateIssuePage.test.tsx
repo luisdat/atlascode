@@ -185,6 +185,61 @@ describe('CreateIssuePage', () => {
             expect(component['advancedFields'].map((field) => field.key)).toEqual(['summary']);
             expect(component['commonFields'].map((field) => field.key)).toEqual(['environment', 'labels']);
         });
+
+        const makeField = (key: string, name: string, displayOrder: number, advanced: boolean) => ({
+            key,
+            name,
+            required: false,
+            uiType: UIType.Input,
+            displayOrder,
+            valueType: ValueType.String,
+            advanced,
+            isArray: false,
+            schema: key,
+        });
+
+        it('keeps the default layout, with assignee visible, when nothing is configured', () => {
+            const component = new CreateIssuePage({});
+
+            component.updateInternals({
+                fields: {
+                    summary: makeField('summary', 'Summary', 1, false),
+                    assignee: makeField('assignee', 'Assignee', 2, true),
+                    environment: makeField('environment', 'Environment', 3, true),
+                },
+                moveToAdvanced: [],
+                moveFromAdvanced: [],
+            } as any);
+
+            expect(component['commonFields'].map((field) => field.key)).toEqual(['summary', 'assignee']);
+            expect(component['advancedFields'].map((field) => field.key)).toEqual(['environment']);
+        });
+
+        it('keeps the default layout when the settings are missing', () => {
+            const component = new CreateIssuePage({});
+
+            component.updateInternals({
+                fields: {
+                    assignee: makeField('assignee', 'Assignee', 1, true),
+                    environment: makeField('environment', 'Environment', 2, true),
+                },
+            } as any);
+
+            expect(component['commonFields'].map((field) => field.key)).toEqual(['assignee']);
+            expect(component['advancedFields'].map((field) => field.key)).toEqual(['environment']);
+        });
+
+        it('does not move parent out of Advanced Options on Data Center', () => {
+            const fields = { parent: makeField('parent', 'Parent', 1, true) };
+
+            const dc = new CreateIssuePage({});
+            dc.updateInternals({ fields, siteDetails: { isCloud: false }, moveFromAdvanced: ['parent'] } as any);
+            expect(dc['advancedFields'].map((field) => field.key)).toEqual(['parent']);
+
+            const cloud = new CreateIssuePage({});
+            cloud.updateInternals({ fields, siteDetails: { isCloud: true }, moveFromAdvanced: ['parent'] } as any);
+            expect(cloud['commonFields'].map((field) => field.key)).toEqual(['parent']);
+        });
     });
 
     describe('Error state rendering', () => {
